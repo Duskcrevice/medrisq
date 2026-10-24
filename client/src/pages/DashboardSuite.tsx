@@ -44,6 +44,7 @@ import {
   Printer,
 } from "lucide-react";
 import { useAuthUser } from "@/contexts/AuthContext";
+import AiAppointmentBooking from "@/components/AiAppointmentBooking";
 import "./dashboard-suite.css";
 
 // 40 Curated Specialist Doctors Across Hospital Departments
@@ -101,6 +102,7 @@ export default function DashboardSuite() {
 
   // Modals & Drawers state
   const [isBookingOpen, setIsBookingOpen] = useState(false);
+  const [modalBookingTab, setModalBookingTab] = useState<"standard" | "ai">("standard");
   const [isTelehealthOpen, setIsTelehealthOpen] = useState(false);
   const [isZapiaOpen, setIsZapiaOpen] = useState(false);
   const [isDoctorProfileOpen, setIsDoctorProfileOpen] = useState<any | null>(null);
@@ -579,12 +581,10 @@ export default function DashboardSuite() {
           <button
             type="button"
             className={`mn-sidebar-nav-btn ${activeTab === "book" ? "active" : ""}`}
-            onClick={() => {
-              setIsBookingOpen(true);
-            }}
+            onClick={() => setActiveTab("book")}
           >
             <Calendar size={16} />
-            <span>3. Book Appointment</span>
+            <span>3. Book Appointment (AI Agent)</span>
           </button>
 
           {/* 4. My Appointments */}
@@ -1062,6 +1062,20 @@ export default function DashboardSuite() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* ============================================================
+              TAB 3: AI APPOINTMENT BOOKING AGENT
+              ============================================================ */}
+          {activeTab === "book" && (
+            <div style={{ marginBottom: 30 }}>
+              <AiAppointmentBooking
+                onBookingSuccess={(newApt) => {
+                  setAppointments([newApt, ...appointments]);
+                  setActiveTab("appointments");
+                }}
+              />
             </div>
           )}
 
@@ -1564,90 +1578,118 @@ export default function DashboardSuite() {
               Atomic schedule reservation with instant real-time doctor availability check:
             </p>
 
-            <form onSubmit={handleConfirmBooking}>
-              <div className="mn-form-group">
-                <label className="mn-form-label">Selected Doctor</label>
-                <select
-                  value={selectedDoctorForBooking}
-                  onChange={e => setSelectedDoctorForBooking(e.target.value)}
-                  className="mn-input-control"
-                  style={{ paddingLeft: 14 }}
-                >
-                  {ALL_DOCTORS.map(doc => (
-                    <option key={doc.id} value={doc.name}>
-                      {doc.name} · {doc.specialty} ({doc.fee})
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+              <button
+                type="button"
+                className={`mn-filter-pill-btn ${modalBookingTab === "standard" ? "active" : ""}`}
+                onClick={() => setModalBookingTab("standard")}
+              >
+                Standard Form
+              </button>
+              <button
+                type="button"
+                className={`mn-filter-pill-btn ${modalBookingTab === "ai" ? "active" : ""}`}
+                onClick={() => setModalBookingTab("ai")}
+              >
+                <Sparkles size={13} style={{ display: "inline", marginRight: 4 }} /> AI Voice &amp; Document Agent
+              </button>
+            </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            {modalBookingTab === "ai" ? (
+              <AiAppointmentBooking
+                onBookingSuccess={newApt => {
+                  setAppointments([newApt, ...appointments]);
+                  setIsBookingOpen(false);
+                  setActiveTab("appointments");
+                }}
+                onCancel={() => setIsBookingOpen(false)}
+              />
+            ) : (
+              <form onSubmit={handleConfirmBooking}>
                 <div className="mn-form-group">
-                  <label className="mn-form-label">Consultation Date</label>
+                  <label className="mn-form-label">Selected Doctor</label>
+                  <select
+                    value={selectedDoctorForBooking}
+                    onChange={e => setSelectedDoctorForBooking(e.target.value)}
+                    className="mn-input-control"
+                    style={{ paddingLeft: 14 }}
+                  >
+                    {ALL_DOCTORS.map(doc => (
+                      <option key={doc.id} value={doc.name}>
+                        {doc.name} · {doc.specialty} ({doc.fee})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div className="mn-form-group">
+                    <label className="mn-form-label">Consultation Date</label>
+                    <input
+                      type="date"
+                      required
+                      value={bookingDate}
+                      onChange={e => setBookingDate(e.target.value)}
+                      className="mn-input-control"
+                      style={{ paddingLeft: 14 }}
+                    />
+                  </div>
+
+                  <div className="mn-form-group">
+                    <label className="mn-form-label">Time Slot</label>
+                    <select
+                      value={bookingTime}
+                      onChange={e => setBookingTime(e.target.value)}
+                      className="mn-input-control"
+                      style={{ paddingLeft: 14 }}
+                    >
+                      {["09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM", "12:00 PM", "02:00 PM"].map(t => (
+                        <option key={t} value={t}>
+                          {t} (Available)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="mn-form-group">
+                  <label className="mn-form-label">Consultation Mode</label>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button
+                      type="button"
+                      className={`mn-filter-pill-btn ${consultType === "In-Person" ? "active" : ""}`}
+                      onClick={() => setConsultType("In-Person")}
+                    >
+                      In-Person Hospital Visit
+                    </button>
+                    <button
+                      type="button"
+                      className={`mn-filter-pill-btn ${consultType === "Online" ? "active" : ""}`}
+                      onClick={() => setConsultType("Online")}
+                    >
+                      Online Telehealth Video
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mn-form-group">
+                  <label className="mn-form-label">Reason for Visit / Symptoms</label>
                   <input
-                    type="date"
+                    type="text"
                     required
-                    value={bookingDate}
-                    onChange={e => setBookingDate(e.target.value)}
+                    value={bookingReason}
+                    onChange={e => setBookingReason(e.target.value)}
+                    placeholder="e.g. Blood pressure monitoring, chest discomfort, routine review"
                     className="mn-input-control"
                     style={{ paddingLeft: 14 }}
                   />
                 </div>
 
-                <div className="mn-form-group">
-                  <label className="mn-form-label">Time Slot</label>
-                  <select
-                    value={bookingTime}
-                    onChange={e => setBookingTime(e.target.value)}
-                    className="mn-input-control"
-                    style={{ paddingLeft: 14 }}
-                  >
-                    {["09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM", "12:00 PM", "02:00 PM"].map(t => (
-                      <option key={t} value={t}>
-                        {t} (Available)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="mn-form-group">
-                <label className="mn-form-label">Consultation Mode</label>
-                <div style={{ display: "flex", gap: 10 }}>
-                  <button
-                    type="button"
-                    className={`mn-filter-pill-btn ${consultType === "In-Person" ? "active" : ""}`}
-                    onClick={() => setConsultType("In-Person")}
-                  >
-                    In-Person Hospital Visit
-                  </button>
-                  <button
-                    type="button"
-                    className={`mn-filter-pill-btn ${consultType === "Online" ? "active" : ""}`}
-                    onClick={() => setConsultType("Online")}
-                  >
-                    Online Telehealth Video
-                  </button>
-                </div>
-              </div>
-
-              <div className="mn-form-group">
-                <label className="mn-form-label">Reason for Visit / Symptoms</label>
-                <input
-                  type="text"
-                  required
-                  value={bookingReason}
-                  onChange={e => setBookingReason(e.target.value)}
-                  placeholder="e.g. Blood pressure monitoring, chest discomfort, routine review"
-                  className="mn-input-control"
-                  style={{ paddingLeft: 14 }}
-                />
-              </div>
-
-              <button type="submit" className="mn-btn-submit-green">
-                Confirm &amp; Book Appointment
-              </button>
-            </form>
+                <button type="submit" className="mn-btn-submit-green">
+                  Confirm &amp; Book Appointment
+                </button>
+              </form>
+            )}
           </div>
         </div>
       )}

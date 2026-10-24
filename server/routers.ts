@@ -43,6 +43,12 @@ import {
   syncClientBatch,
   resolveConflict,
 } from "./hackathonStore";
+import {
+  executeAiBooking,
+  interpretWithGeminiOrLocal,
+  validateCsvContent,
+} from "./aiBookingService";
+import type { User } from "../drizzle/schema";
 
 const demoRole = z.enum(["public", "hospital", "pharmacist", "coordinator", "admin"]);
 
@@ -142,6 +148,81 @@ export const appRouter = router({
       resolution: z.enum(["KEEP_LOCAL", "KEEP_SERVER", "MERGE"]),
       mergedNotes: z.string().optional(),
     })).mutation(({ input }) => resolveConflict(input.visitId, input.resolution, input.mergedNotes)),
+  }),
+  aiBooking: router({
+    interpret: publicProcedure.input(z.object({
+      instruction: z.string().min(1),
+      modality: z.enum(["text", "voice", "screenshot"]).default("text"),
+      imageBase64: z.string().optional(),
+    })).mutation(async ({ input }) => {
+      return interpretWithGeminiOrLocal(input.instruction, input.modality, input.imageBase64);
+    }),
+    validateCsv: publicProcedure.input(z.object({
+      csvContent: z.string().min(1),
+    })).mutation(async ({ input }) => {
+      return validateCsvContent(input.csvContent);
+    }),
+    confirmBooking: protectedProcedure.input(z.object({
+      doctorId: z.string().optional(),
+      doctorName: z.string().optional(),
+      hospitalName: z.string().optional(),
+      date: z.string(),
+      time: z.string().optional(),
+      appointmentAt: z.string().optional(),
+      reason: z.string().min(3),
+      patientName: z.string().optional(),
+      idempotencyKey: z.string().optional(),
+    })).mutation(async ({ ctx, input }) => {
+      return executeAiBooking(ctx.user, input);
+    }),
+    confirmDemoBooking: publicProcedure.input(z.object({
+      doctorId: z.string().optional(),
+      doctorName: z.string().optional(),
+      hospitalName: z.string().optional(),
+      date: z.string(),
+      time: z.string().optional(),
+      appointmentAt: z.string().optional(),
+      reason: z.string().min(3),
+      patientName: z.string().optional(),
+      idempotencyKey: z.string().optional(),
+    })).mutation(async ({ ctx, input }) => {
+      const actorUser: User = ctx.user || {
+        id: 999,
+        openId: "patient-demo-guest",
+        name: input.patientName || "Guest Patient",
+        email: "guest@mednexus.org",
+        loginMethod: "demo",
+        role: "user",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastSignedIn: new Date(),
+      };
+      return executeAiBooking(actorUser, input);
+    }),
+    batchConfirmBookings: protectedProcedure.input(z.object({
+      bookings: z.array(z.object({
+        doctorId: z.string().optional(),
+        doctorName: z.string().optional(),
+        hospitalName: z.string().optional(),
+        date: z.string(),
+        time: z.string().optional(),
+        appointmentAt: z.string().optional(),
+        reason: z.string().min(3),
+        patientName: z.string().optional(),
+        idempotencyKey: z.string().optional(),
+      })),
+    })).mutation(async ({ ctx, input }) => {
+      const results = [];
+      for (const b of input.bookings) {
+        try {
+          const res = await executeAiBooking(ctx.user, b);
+          results.push({ ...res, success: true });
+        } catch (err: any) {
+          results.push({ success: false, message: err.message, date: b.date, doctor: b.doctorName });
+        }
+      }
+      return { total: input.bookings.length, results };
+    }),
   }),
 });
 
