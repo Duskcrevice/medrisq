@@ -132,66 +132,88 @@ export default function AiAppointmentBooking({ onBookingSuccess, onCancel }: AiA
     }
   });
 
-  // Speech Recognition Handling
+  // MediaRecorder + Speech Recognition Handling
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const recognitionRef = useRef<any>(null);
 
-  const startVoiceRecording = () => {
+  const startVoiceRecording = async () => {
     setSpeechError(null);
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    audioChunksRef.current = [];
 
-    if (!SpeechRecognition) {
-      setSpeechError("Browser speech recognition is not supported in this browser. Please type your instruction in Hindi or English.");
-      toast.error("Speech recognition not supported in this browser.");
+    // 1. Initialize MediaRecorder for real audio capture to send to AI
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
+
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        if (audioBlob.size > 0) {
+          const reader = new FileReader();
+          reader.readAsDataURL(audioBlob);
+          reader.onloadend = () => {
+            const base64Audio = reader.result as string;
+            interpretMutation.mutate({
+              instruction: textInput || "Audio booking instruction",
+              modality: "voice",
+              audioBase64: base64Audio,
+            });
+          };
+        }
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      toast.info("Microphone listening... Speak in Hindi or English, then click Stop.");
+    } catch (err: any) {
+      console.warn("Microphone access error:", err);
+      let msg = "Microphone access could not be initialized.";
+      if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+        msg = "Microphone access was denied. Please allow microphone permission in your browser settings.";
+      }
+      setSpeechError(msg);
+      toast.error(msg);
       return;
     }
 
-    try {
-      const recognition = new SpeechRecognition();
-      recognition.lang = voiceLanguage;
-      recognition.continuous = false;
-      recognition.interimResults = false;
+    // 2. Also try SpeechRecognition for live interim transcript preview if browser supports it
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      try {
+        const recognition = new SpeechRecognition();
+        recognition.lang = voiceLanguage;
+        recognition.continuous = false;
+        recognition.interimResults = true;
 
-      recognition.onstart = () => {
-        setIsRecording(true);
-      };
+        recognition.onresult = (event: any) => {
+          const transcript = event.results[0][0].transcript;
+          setTextInput(transcript);
+        };
 
-      recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        setTextInput(transcript);
-        setIsRecording(false);
-        toast.info(`Transcribed: "${transcript}"`);
-        // Automatically interpret the captured voice instruction
-        interpretMutation.mutate({ instruction: transcript, modality: "voice" });
-      };
-
-      recognition.onerror = (event: any) => {
-        setIsRecording(false);
-        let msg = `Voice error: ${event.error}`;
-        if (event.error === "not-allowed") {
-          msg = "Microphone access was denied. Please allow microphone permission in your browser settings.";
-        } else if (event.error === "no-speech") {
-          msg = "No speech detected. Please try speaking closer to your microphone.";
-        }
-        setSpeechError(msg);
-        toast.error(msg);
-      };
-
-      recognition.onend = () => {
-        setIsRecording(false);
-      };
-
-      recognitionRef.current = recognition;
-      recognition.start();
-    } catch (e: any) {
-      setIsRecording(false);
-      setSpeechError(e.message || "Could not initialize microphone recording.");
+        recognitionRef.current = recognition;
+        recognition.start();
+      } catch {
+        // Non-fatal, MediaRecorder will send raw audio
+      }
     }
   };
 
   const stopVoiceRecording = () => {
+    setIsRecording(false);
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
     if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      setIsRecording(false);
+      try {
+        recognitionRef.current.stop();
+      } catch {}
     }
   };
 
@@ -441,9 +463,27 @@ export default function AiAppointmentBooking({ onBookingSuccess, onCancel }: AiA
               {isRecording ? <MicOff size={32} /> : <Mic size={32} />}
             </button>
             <div style={{ marginTop: 12, fontWeight: 700, fontSize: 14, color: isRecording ? "#dc2626" : "#0f172a" }}>
-              {isRecording ? "Listening... Speak clearly in Hindi or English" : "Click Microphone to Speak"}
+              {interpretMutation.isPending ? (
+                <span style={{ color: "#0d9488", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <RefreshCw className="animate-spin" size={16} /> Transcribing speech &amp; matching clinical slot...
+                </span>
+              ) : isRecording ? (
+                "🔴 Recording audio... Click microphone again when done speaking"
+              ) : (
+                "Click Microphone to Speak"
+              )}
             </div>
-            <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
+            {isRecording && (
+              <button
+                type="button"
+                className="mn-btn-submit-green"
+                style={{ width: "auto", margin: "10px auto 0", padding: "6px 16px", background: "#dc2626", borderColor: "#b91c1c" }}
+                onClick={stopVoiceRecording}
+              >
+                Done Speaking (Transcribe &amp; Finalize)
+              </button>
+            )}
+            <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>
               Try: &ldquo;Dr Sharma ke saath 28 October ko subah 11 baje appointment book karo&rdquo;
             </div>
           </div>

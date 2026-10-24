@@ -356,14 +356,115 @@ export function parseLocalInstruction(text: string): {
 }
 
 /**
+ * Server-side audio transcriber using Groq Whisper, OpenAI Whisper, or Gemini
+ */
+export async function transcribeAudioBuffer(
+  audioBuffer: Buffer,
+  mimeType: string = "audio/webm"
+): Promise<{ transcript: string; language?: string } | null> {
+  // 1. Try Groq Whisper (free, sub-second, state-of-the-art Hindi / Indian English)
+  if (ENV.groqApiKey) {
+    try {
+      const formData = new FormData();
+      const blob = new Blob([new Uint8Array(audioBuffer)], { type: mimeType });
+      formData.append("file", blob, "recording.webm");
+      formData.append("model", "whisper-large-v3");
+      formData.append("prompt", "Medical appointment booking in Hindi or English (Dr Sharma, Dr Nair, Dr Mehta, Dr Mishra, tarikh, baje)");
+
+      const res = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${ENV.groqApiKey}` },
+        body: formData,
+        signal: AbortSignal.timeout(12000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.text) return { transcript: data.text.trim(), language: data.language };
+      }
+    } catch (e) {
+      console.error("Groq Whisper error:", e);
+    }
+  }
+
+  // 2. Try OpenAI Whisper
+  if (ENV.openaiApiKey) {
+    try {
+      const formData = new FormData();
+      const blob = new Blob([new Uint8Array(audioBuffer)], { type: mimeType });
+      formData.append("file", blob, "recording.webm");
+      formData.append("model", "whisper-1");
+      formData.append("prompt", "Medical appointment booking in Hindi or English (Dr Sharma, Dr Nair, Dr Mehta, Dr Mishra)");
+
+      const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${ENV.openaiApiKey}` },
+        body: formData,
+        signal: AbortSignal.timeout(12000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.text) return { transcript: data.text.trim(), language: data.language };
+      }
+    } catch (e) {
+      console.error("OpenAI Whisper error:", e);
+    }
+  }
+
+  // 3. Try Gemini multimodal audio
+  if (ENV.geminiApiKey) {
+    try {
+      const base64 = audioBuffer.toString("base64");
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${ENV.geminiApiKey}`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inlineData: { mimeType, data: base64 } },
+              { text: "Listen carefully to this audio in Hindi, English, or mixed Hinglish. Transcribe the exact words spoken. Return ONLY the transcribed text." }
+            ]
+          }]
+        }),
+        signal: AbortSignal.timeout(15000)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        if (text) return { transcript: text };
+      }
+    } catch (e) {
+      console.error("Gemini audio error:", e);
+    }
+  }
+
+  return null;
+}
+
+/**
  * Calls Google Gemini API if GEMINI_API_KEY is available and has quota.
  * Falls back to local NLP parser on rate limits, errors, or offline.
  */
 export async function interpretWithGeminiOrLocal(
   rawInput: string,
   modality: "text" | "voice" | "screenshot" = "text",
-  imageBase64?: string
+  imageBase64?: string,
+  audioBase64?: string
 ): Promise<ParsedAppointmentDraft> {
+  // If voice audio base64 is provided, transcribe audio first
+  if (modality === "voice" && audioBase64) {
+    try {
+      const cleanBase64 = audioBase64.replace(/^data:audio\/[a-zA-Z0-9]+;base64,/, "");
+      const buffer = Buffer.from(cleanBase64, "base64");
+      const transcription = await transcribeAudioBuffer(buffer, "audio/webm");
+      if (transcription?.transcript) {
+        rawInput = transcription.transcript;
+      }
+    } catch (err) {
+      console.error("Error processing voice audio:", err);
+    }
+  }
+
   let draftData: {
     doctorName?: string;
     date?: string;

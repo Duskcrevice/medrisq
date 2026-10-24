@@ -10,4 +10,6 @@ export const ENV = {
   get forgeApiUrl() { return process.env.MANUS_API_URL ?? ""; },
   get forgeApiKey() { return process.env.MANUS_API_KEY ?? ""; },
   get geminiApiKey() { return process.env.GEMINI_API_KEY ?? ""; },
+  get groqApiKey() { return process.env.GROQ_API_KEY ?? ""; },
+  get openaiApiKey() { return process.env.OPENAI_API_KEY ?? ""; },
 };

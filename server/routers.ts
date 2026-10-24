@@ -151,11 +151,12 @@ export const appRouter = router({
   }),
   aiBooking: router({
     interpret: publicProcedure.input(z.object({
-      instruction: z.string().min(1),
+      instruction: z.string().optional().default(""),
       modality: z.enum(["text", "voice", "screenshot"]).default("text"),
       imageBase64: z.string().optional(),
+      audioBase64: z.string().optional(),
     })).mutation(async ({ input }) => {
-      return interpretWithGeminiOrLocal(input.instruction, input.modality, input.imageBase64);
+      return interpretWithGeminiOrLocal(input.instruction, input.modality, input.imageBase64, input.audioBase64);
     }),
     validateCsv: publicProcedure.input(z.object({
       csvContent: z.string().min(1),

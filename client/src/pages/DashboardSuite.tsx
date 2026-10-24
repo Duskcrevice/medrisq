@@ -45,6 +45,11 @@ import {
 } from "lucide-react";
 import { useAuthUser } from "@/contexts/AuthContext";
 import AiAppointmentBooking from "@/components/AiAppointmentBooking";
+import {
+  SimplifiedRxSafety,
+  SimplifiedReportSimplifier,
+  SimplifiedOfflineSync,
+} from "@/components/SimplifiedHtSuite";
 import "./dashboard-suite.css";
 
 // 40 Curated Specialist Doctors Across Hospital Departments
@@ -621,20 +626,20 @@ export default function DashboardSuite() {
           <button
             type="button"
             className={`mn-sidebar-nav-btn special-link ${activeTab === "verifier" ? "active" : ""}`}
-            onClick={() => setLocation("/app/rx-safety")}
+            onClick={() => setActiveTab("verifier")}
           >
             <Sparkles size={16} />
-            <span>7. AI Medicine Verifier</span>
+            <span>7. AI Medicine Verifier (HT-01)</span>
           </button>
 
           {/* 8. AI Report Simplifier (HT-02) */}
           <button
             type="button"
             className={`mn-sidebar-nav-btn special-link ${activeTab === "simplifier" ? "active" : ""}`}
-            onClick={() => setLocation("/app/report-simplifier")}
+            onClick={() => setActiveTab("simplifier")}
           >
             <ClipboardList size={16} />
-            <span>8. AI Report Simplifier</span>
+            <span>8. AI Report Simplifier (HT-02)</span>
           </button>
 
           {/* 9. My Reviews */}
@@ -680,12 +685,12 @@ export default function DashboardSuite() {
           {/* Offline Health Mesh (HT-03) */}
           <button
             type="button"
-            className="mn-sidebar-nav-btn special-link"
+            className={`mn-sidebar-nav-btn special-link ${activeTab === "offline" ? "active" : ""}`}
             style={{ marginTop: "auto", borderTop: "1px solid #f1f5f9", paddingTop: 12 }}
-            onClick={() => setLocation("/app/offline-sync")}
+            onClick={() => setActiveTab("offline")}
           >
             <WifiOff size={16} />
-            <span>Offline Health Mesh (HT-03)</span>
+            <span>13. Offline Health Records (HT-03)</span>
           </button>
         </aside>
 
@@ -717,7 +722,7 @@ export default function DashboardSuite() {
                   <button
                     type="button"
                     className="mn-btn-banner-teal-translucent"
-                    onClick={() => setLocation("/app/rx-safety")}
+                    onClick={() => setActiveTab("verifier")}
                   >
                     <Sparkles size={14} /> Verify Medicine
                   </button>
@@ -868,7 +873,7 @@ export default function DashboardSuite() {
                   <div
                     className="mn-doctor-card-item"
                     style={{ cursor: "pointer" }}
-                    onClick={() => setLocation("/app/rx-safety")}
+                    onClick={() => setActiveTab("verifier")}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                       <div
@@ -893,7 +898,7 @@ export default function DashboardSuite() {
                       Detects duplicate constituents across brands (Combiflam + Dolo), harmful DDI combinations, and beta-lactam anaphylactic allergy cross-reactivity.
                     </p>
                     <button type="button" className="mn-doc-card-btn">
-                      Launch HT-01 Rx Safety Engine →
+                      Check Medicine Safety (HT-01) →
                     </button>
                   </div>
 
@@ -901,7 +906,7 @@ export default function DashboardSuite() {
                   <div
                     className="mn-doctor-card-item"
                     style={{ cursor: "pointer" }}
-                    onClick={() => setLocation("/app/report-simplifier")}
+                    onClick={() => setActiveTab("simplifier")}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                       <div
@@ -930,7 +935,7 @@ export default function DashboardSuite() {
                       className="mn-doc-card-btn"
                       style={{ background: "#f3e8ff", color: "#7e22ce", borderColor: "#e9d5ff" }}
                     >
-                      Launch HT-02 Simplifier Engine →
+                      Understand Reports (HT-02) →
                     </button>
                   </div>
 
@@ -938,7 +943,7 @@ export default function DashboardSuite() {
                   <div
                     className="mn-doctor-card-item"
                     style={{ cursor: "pointer" }}
-                    onClick={() => setLocation("/app/offline-sync")}
+                    onClick={() => setActiveTab("offline")}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                       <div
@@ -967,7 +972,7 @@ export default function DashboardSuite() {
                       className="mn-doc-card-btn"
                       style={{ background: "#e0f2fe", color: "#0369a1", borderColor: "#bae6fd" }}
                     >
-                      Launch HT-03 Offline Engine →
+                      View Offline Records (HT-03) →
                     </button>
                   </div>
                 </div>
@@ -1309,14 +1314,32 @@ export default function DashboardSuite() {
                         type="button"
                         className="mn-doc-card-btn"
                         style={{ width: "auto", background: "#ffffff", borderColor: "#0d9488", color: "#0d9488" }}
-                        onClick={() => setLocation("/app/rx-safety")}
+                        onClick={() => setActiveTab("verifier")}
                       >
-                        Audit Drug Safety with HT-01 →
+                        Check Medicine Safety with HT-01 →
                       </button>
                     </div>
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* ============================================================
+              TAB 7: AI MEDICINE VERIFIER (HT-01 SIMPLIFIED)
+              ============================================================ */}
+          {activeTab === "verifier" && (
+            <div style={{ marginBottom: 30 }}>
+              <SimplifiedRxSafety patientName={userName} />
+            </div>
+          )}
+
+          {/* ============================================================
+              TAB 8: AI REPORT SIMPLIFIER (HT-02 SIMPLIFIED)
+              ============================================================ */}
+          {activeTab === "simplifier" && (
+            <div style={{ marginBottom: 30 }}>
+              <SimplifiedReportSimplifier patientName={userName} />
             </div>
           )}
 
@@ -1548,6 +1571,15 @@ export default function DashboardSuite() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {/* ============================================================
+              TAB 13: OFFLINE HEALTH RECORDS (HT-03 SIMPLIFIED)
+              ============================================================ */}
+          {activeTab === "offline" && (
+            <div style={{ marginBottom: 30 }}>
+              <SimplifiedOfflineSync />
             </div>
           )}
         </main>
