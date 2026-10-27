@@ -7,8 +7,10 @@
 [![Vite](https://img.shields.io/badge/Vite-7.1-646CFF?logo=vite)](https://vitejs.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-4.1-38B2AC?logo=tailwind-css)](https://tailwindcss.com/)
 [![tRPC](https://img.shields.io/badge/tRPC-11.6-2596BE?logo=trpc)](https://trpc.io/)
-[![Vercel Ready](https://img.shields.io/badge/Vercel-Deployed-black?logo=vercel)](https://vercel.com/)
-[![Tests](https://img.shields.io/badge/Tests-Passing-brightgreen?logo=vitest)](https://vitest.dev/)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FDuskcrevice%2Fmedrisq&env=GEMINI_API_KEY&project-name=medrisq&repo-name=medrisq)
+
+🌐 **Permanent Vercel Live Deployment:** [https://medrisq.vercel.app](https://medrisq.vercel.app)  
+📂 **Official GitHub Source Repository:** [https://github.com/Duskcrevice/medrisq](https://github.com/Duskcrevice/medrisq)
 
 > **One Connected Network. Safer Medicines. Smarter Emergency Response.**  
 > MedNexus AI (MedRisq) is a multi-persona hospital operating system that bridges clinical operations, diagnostic intelligence, and patient safety. Built to eliminate medication errors, streamline patient access, and coordinate emergency healthcare logistics across regional hospital clusters.
