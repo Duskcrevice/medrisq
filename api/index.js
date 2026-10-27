@@ -3396,22 +3396,23 @@ function evaluateLocally(lower, originalQuery) {
     source: "clinical-db"
   };
 }
-async function simplifyMedicalReportText(rawText, patientName = "Vittika Bairathi") {
+async function simplifyMedicalReportText(rawText, patientName = "Vittika Bairathi", imageBase64) {
   if (ENV.geminiApiKey) {
     try {
       const prompt = `You are a Chief Pathologist and Patient Education Specialist at MEDNEXUS General Hospital.
 Patient: ${patientName}.
-Raw Medical Report Content:
-"${rawText}"
+${imageBase64 ? "The patient uploaded an image/scan of their clinical laboratory pathology report. Carefully read and extract ALL diagnostic test parameters, measured values, units, reference ranges, and abnormal flags from the image." : ""}
+${rawText ? `Raw Medical Report Text:
+"${rawText}"` : ""}
 
-Parse this report and return ONLY valid JSON without markdown:
+Parse this report and return ONLY valid JSON without markdown wrapping:
 {
-  "reportTitle": "e.g. Complete Blood Count (CBC) or Lipid Profile",
+  "reportTitle": "e.g. Complete Blood Count (CBC) or Comprehensive Metabolic Panel",
   "overallHealthStatus": "Optimal / Healthy" | "Attention Recommended" | "Urgent Clinician Review",
   "summaryVerdict": "2 to 3 sentences in plain, empathetic language explaining what this test means for the patient's daily health.",
   "parameters": [
     {
-      "parameter": "Parameter name (e.g. Hemoglobin, Fasting Blood Sugar, Platelets)",
+      "parameter": "Parameter name (e.g. Hemoglobin, Fasting Blood Sugar, Platelets, TSH, Serum Creatinine)",
       "value": "Measured value with units (e.g. 13.8 g/dL)",
       "status": "Normal" | "High" | "Low",
       "referenceRange": "e.g. 12.0 - 16.0 g/dL",
@@ -3425,12 +3426,24 @@ Parse this report and return ONLY valid JSON without markdown:
     "Practical daily diet/hydration/exercise suggestion"
   ]
 }`;
+      const parts = [{ text: prompt }];
+      if (imageBase64 && imageBase64.trim()) {
+        const cleanBase64 = imageBase64.replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, "");
+        const mimeMatch = imageBase64.match(/^data:(image\/[a-zA-Z0-9+.-]+);base64,/);
+        const mimeType = mimeMatch ? mimeMatch[1] : "image/jpeg";
+        parts.push({
+          inlineData: {
+            mimeType,
+            data: cleanBase64
+          }
+        });
+      }
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${ENV.geminiApiKey}`;
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-        signal: AbortSignal.timeout(3500)
+        body: JSON.stringify({ contents: [{ parts }] }),
+        signal: AbortSignal.timeout(15e3)
       });
       if (res.ok) {
         const data = await res.json();
@@ -3455,8 +3468,11 @@ Parse this report and return ONLY valid JSON without markdown:
             ]
           };
         }
+      } else {
+        console.warn(`[ReportSimplifier] Gemini API responded with status ${res.status}`);
       }
-    } catch {
+    } catch (err) {
+      console.warn("[ReportSimplifier] Gemini API error, falling back to local extractor:", err);
     }
   }
   return parseReportLocally(rawText, patientName);
@@ -3726,10 +3742,11 @@ var appRouter = router({
     })).mutation(({ input }) => simplifyCustomReport(input.patientName, input.reportType, input.measurements)),
     // Universal Uploaded Report Simplifier (File / Text / Image)
     simplifyUploadedReport: publicProcedure.input(z2.object({
-      reportText: z2.string().min(1),
-      patientName: z2.string().optional()
+      reportText: z2.string().optional().default(""),
+      patientName: z2.string().optional(),
+      imageBase64: z2.string().optional()
     })).mutation(async ({ input }) => {
-      return simplifyMedicalReportText(input.reportText, input.patientName);
+      return simplifyMedicalReportText(input.reportText || "", input.patientName, input.imageBase64);
     }),
     // HT-03: Healthcare Without Internet
     getCentralVisits: publicProcedure.query(() => getCentralSyncVisits()),
