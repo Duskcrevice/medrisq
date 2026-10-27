@@ -1,0 +1,12 @@
+# Dependencies
+node_modules
+
+# Logs & temp
+.manus-logs
+scratch/
+mednexus-full-project.zip
+mednexus manus images/
+*.log
+.git
+.vscode
+.idea

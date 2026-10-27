@@ -48,6 +48,11 @@ import {
   interpretWithGeminiOrLocal,
   validateCsvContent,
 } from "./aiBookingService";
+import {
+  verifyAnyMedicine,
+  simplifyMedicalReportText,
+  processZapiaMessage,
+} from "./clinicalAiService";
 import type { User } from "../drizzle/schema";
 
 const demoRole = z.enum(["public", "hospital", "pharmacist", "coordinator", "admin"]);
@@ -123,6 +128,13 @@ export const appRouter = router({
       })),
     })).mutation(({ input }) => checkPrescriptionSafety(input.patient, input.drugs)),
     getTestCases: publicProcedure.query(() => HT01_TEST_CASES),
+    // Universal Any-Medicine Verification (User query)
+    verifyAnyMedicine: publicProcedure.input(z.object({
+      medicineName: z.string().min(1),
+      patientName: z.string().optional(),
+    })).mutation(async ({ input }) => {
+      return verifyAnyMedicine(input.medicineName, input.patientName);
+    }),
 
     // HT-02: Medical Report Simplification
     getSampleReports: publicProcedure.query(() => SAMPLE_REPORTS),
@@ -137,6 +149,13 @@ export const appRouter = router({
         referenceMax: z.number(),
       })),
     })).mutation(({ input }) => simplifyCustomReport(input.patientName, input.reportType, input.measurements)),
+    // Universal Uploaded Report Simplifier (File / Text / Image)
+    simplifyUploadedReport: publicProcedure.input(z.object({
+      reportText: z.string().min(1),
+      patientName: z.string().optional(),
+    })).mutation(async ({ input }) => {
+      return simplifyMedicalReportText(input.reportText, input.patientName);
+    }),
 
     // HT-03: Healthcare Without Internet
     getCentralVisits: publicProcedure.query(() => getCentralSyncVisits()),
@@ -150,6 +169,13 @@ export const appRouter = router({
     })).mutation(({ input }) => resolveConflict(input.visitId, input.resolution, input.mergedNotes)),
   }),
   aiBooking: router({
+    // Zapia AI Clinical Assistant (Answers ANY medical, hospital, triage question)
+    chatZapia: publicProcedure.input(z.object({
+      message: z.string().min(1),
+      patientName: z.string().optional(),
+    })).mutation(async ({ input }) => {
+      return processZapiaMessage(input.message, input.patientName);
+    }),
     interpret: publicProcedure.input(z.object({
       instruction: z.string().optional().default(""),
       modality: z.enum(["text", "voice", "screenshot"]).default("text"),
@@ -194,6 +220,7 @@ export const appRouter = router({
         email: "guest@mednexus.org",
         loginMethod: "demo",
         role: "user",
+        hospital_id: "HOSP-DEFAULT",
         createdAt: new Date(),
         updatedAt: new Date(),
         lastSignedIn: new Date(),

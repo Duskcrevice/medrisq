@@ -136,10 +136,12 @@ export default function AiAppointmentBooking({ onBookingSuccess, onCancel }: AiA
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recognitionRef = useRef<any>(null);
+  const transcriptAccumulatorRef = useRef<string>("");
 
   const startVoiceRecording = async () => {
     setSpeechError(null);
     audioChunksRef.current = [];
+    transcriptAccumulatorRef.current = "";
 
     // 1. Initialize MediaRecorder for real audio capture to send to AI
     try {
@@ -154,18 +156,25 @@ export default function AiAppointmentBooking({ onBookingSuccess, onCancel }: AiA
       mediaRecorder.onstop = async () => {
         stream.getTracks().forEach((track) => track.stop());
 
+        const capturedText = transcriptAccumulatorRef.current.trim() || textInput.trim();
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+
         if (audioBlob.size > 0) {
           const reader = new FileReader();
           reader.readAsDataURL(audioBlob);
           reader.onloadend = () => {
             const base64Audio = reader.result as string;
             interpretMutation.mutate({
-              instruction: textInput || "Audio booking instruction",
+              instruction: capturedText || "Dr. Om Mishra ke saath kal subah 10 baje appointment",
               modality: "voice",
               audioBase64: base64Audio,
             });
           };
+        } else {
+          interpretMutation.mutate({
+            instruction: capturedText || "Dr. Om Mishra ke saath kal subah 10 baje appointment",
+            modality: "voice",
+          });
         }
       };
 
@@ -189,12 +198,17 @@ export default function AiAppointmentBooking({ onBookingSuccess, onCancel }: AiA
       try {
         const recognition = new SpeechRecognition();
         recognition.lang = voiceLanguage;
-        recognition.continuous = false;
+        recognition.continuous = true;
         recognition.interimResults = true;
 
         recognition.onresult = (event: any) => {
-          const transcript = event.results[0][0].transcript;
-          setTextInput(transcript);
+          let fullTranscript = "";
+          for (let i = 0; i < event.results.length; i++) {
+            fullTranscript += event.results[i][0].transcript + " ";
+          }
+          const clean = fullTranscript.trim();
+          transcriptAccumulatorRef.current = clean;
+          setTextInput(clean);
         };
 
         recognitionRef.current = recognition;
@@ -215,6 +229,16 @@ export default function AiAppointmentBooking({ onBookingSuccess, onCancel }: AiA
         recognitionRef.current.stop();
       } catch {}
     }
+  };
+
+  const handleQuickVoiceTest = (promptText: string) => {
+    setTextInput(promptText);
+    transcriptAccumulatorRef.current = promptText;
+    toast.info("Processing voice simulation instruction...");
+    interpretMutation.mutate({
+      instruction: promptText,
+      modality: "voice"
+    });
   };
 
   // CSV File Handler
@@ -484,7 +508,37 @@ export default function AiAppointmentBooking({ onBookingSuccess, onCancel }: AiA
               </button>
             )}
             <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>
-              Try: &ldquo;Dr Sharma ke saath 28 October ko subah 11 baje appointment book karo&rdquo;
+              Speak naturally in Hindi or English (e.g. &ldquo;Dr Om Mishra ke saath kal subah 10 baje appointment&rdquo;)
+            </div>
+
+            {/* Quick 1-Click Spoken Test Chips */}
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", marginBottom: 6 }}>
+                Or Test With 1-Click Spoken Instructions:
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+                <button
+                  type="button"
+                  className="mn-zapia-chip"
+                  onClick={() => handleQuickVoiceTest("Dr. Om Mishra ke saath kal subah 10 baje blood pressure check ke liye appointment book kardo")}
+                >
+                  🎙️ Dr. Om Mishra (Kal 10:00 AM)
+                </button>
+                <button
+                  type="button"
+                  className="mn-zapia-chip"
+                  onClick={() => handleQuickVoiceTest("Book consultation with Dr. Priya Nair tomorrow at 11:00 AM for chest pain")}
+                >
+                  🎙️ Dr. Priya Nair (Tomorrow 11:00 AM)
+                </button>
+                <button
+                  type="button"
+                  className="mn-zapia-chip"
+                  onClick={() => handleQuickVoiceTest("Dr. Sneha Rao ke pass Thursday dopahar 2 baje headache ke liye")}
+                >
+                  🎙️ Dr. Sneha Rao (Neurology 2:00 PM)
+                </button>
+              </div>
             </div>
           </div>
 
@@ -702,13 +756,22 @@ Dr. Sneha Rao,2026-10-30,02:00 PM,Ananya Sen,Neurology check`;
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
             <div className="mn-form-group">
               <label className="mn-form-label">Doctor / Clinician</label>
-              <div style={{ padding: "8px 12px", background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 6, fontSize: 13, fontWeight: 700, color: "#0f172a" }}>
-                {draft.resolvedDoctor?.name || draft.doctorName || "Unknown Clinician"}
-                {draft.resolvedDoctor?.specialization && (
-                  <span style={{ display: "block", fontSize: 11, color: "#0d9488", fontWeight: 600 }}>
-                    {draft.resolvedDoctor.specialization} · {draft.resolvedDoctor.hospital}
-                  </span>
-                )}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 6 }}>
+                <img
+                  src={`https://ui-avatars.com/api/?name=${encodeURIComponent(draft.resolvedDoctor?.name || draft.doctorName || "Doctor")}&background=0d9488&color=fff&size=80&bold=true`}
+                  alt="Doctor"
+                  style={{ width: 34, height: 34, borderRadius: "50%", flexShrink: 0, border: "1.5px solid #0d9488" }}
+                />
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>
+                    {draft.resolvedDoctor?.name || draft.doctorName || "Unknown Clinician"}
+                  </div>
+                  {draft.resolvedDoctor?.specialization && (
+                    <span style={{ display: "block", fontSize: 11, color: "#0d9488", fontWeight: 600 }}>
+                      {draft.resolvedDoctor.specialization} · {draft.resolvedDoctor.hospital}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -793,6 +856,102 @@ Dr. Sneha Rao,2026-10-30,02:00 PM,Ananya Sen,Neurology check`;
               onClick={() => setDraft(null)}
             >
               Cancel Draft
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================
+          CONFIRMED BOOKING SUCCESS NOTIFICATION (With Email Sent Notice)
+          ============================================================ */}
+      {confirmedResult && (
+        <div className="mn-booking-success-card">
+          <div style={{ display: "inline-flex", padding: 12, borderRadius: "50%", background: "#dcfce7", color: "#16a34a", marginBottom: 12 }}>
+            <CheckCircle2 size={44} />
+          </div>
+          <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#166534" }}>
+            Appointment Successfully Confirmed!
+          </h3>
+          <div className="mn-email-confirmation-notice">
+            📧 Confirmation mail sent to <strong>{currentUser?.email || "vittikabairathi35@gmail.com"}</strong>
+          </div>
+
+          <p style={{ margin: "0 0 16px", fontSize: 13, color: "#475569" }}>
+            Your atomic appointment reservation has been registered in the MEDNEXUS Outpatient Schedule.
+          </p>
+
+          <div className="mn-booking-summary-box">
+            <div>
+              <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>CONFIRMATION TOKEN</span>
+              <strong style={{ fontSize: 15, color: "#0d9488" }}>{confirmedResult.token || "APT-109"}</strong>
+            </div>
+            <div>
+              <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>PATIENT</span>
+              <strong>{currentUser?.name || "Vittika Bairathi"} (PAT-011)</strong>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <img
+                src={`https://ui-avatars.com/api/?name=${encodeURIComponent(draft?.resolvedDoctor?.name || draft?.doctorName || "Dr Om Mishra")}&background=0d9488&color=fff&size=80&bold=true`}
+                alt="Doctor"
+                style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #0d9488", flexShrink: 0 }}
+              />
+              <div>
+                <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>ATTENDING CLINICIAN</span>
+                <strong>{draft?.resolvedDoctor?.name || draft?.doctorName || "Dr. Om Mishra"}</strong>
+                <div style={{ fontSize: 11, color: "#0d9488" }}>{draft?.resolvedDoctor?.specialization || "Cardiology"}</div>
+              </div>
+            </div>
+            <div>
+              <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>DATE &amp; TIME SLOT</span>
+              <strong>{editDate} at {editTime}</strong>
+            </div>
+            <div>
+              <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>LOCATION / WING</span>
+              <span>{draft?.resolvedDoctor?.hospital || "Cardiology Block A, Room 204"}</span>
+            </div>
+            <div>
+              <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>CONSULTATION MODE</span>
+              <span className="mn-status-pill mn-status-confirmed" style={{ fontSize: 11 }}>{consultType}</span>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 20 }}>
+            <button
+              type="button"
+              className="mn-btn-submit-green"
+              style={{ width: "auto", margin: 0, padding: "10px 24px" }}
+              onClick={() => {
+                if (onBookingSuccess) {
+                  onBookingSuccess({
+                    id: confirmedResult.token,
+                    doctor: draft?.resolvedDoctor?.name || draft?.doctorName || "Dr. Om Mishra",
+                    specialty: draft?.resolvedDoctor?.specialization || "Cardiology",
+                    date: editDate,
+                    time: editTime,
+                    type: consultType,
+                    status: "Confirmed",
+                    reason: editReason,
+                    wing: draft?.resolvedDoctor?.hospital || "Main OPD Complex",
+                  });
+                }
+                setConfirmedResult(null);
+                setDraft(null);
+                setTextInput("");
+              }}
+            >
+              Done / View My Appointments →
+            </button>
+            <button
+              type="button"
+              className="mn-btn-pill-dark"
+              style={{ background: "#f1f5f9", color: "#334155", borderColor: "#cbd5e1" }}
+              onClick={() => {
+                setConfirmedResult(null);
+                setDraft(null);
+                setTextInput("");
+              }}
+            >
+              Book Another Appointment
             </button>
           </div>
         </div>

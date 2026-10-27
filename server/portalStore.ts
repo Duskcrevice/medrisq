@@ -50,6 +50,7 @@ type MemoryStaffApplication = {
   applicantName: string;
   email: string | null;
   hospitalName: string;
+  hospital_id: string;
   employeeId: string;
   requestedRole: "hospital_staff" | "pharmacist" | "coordinator";
   status: StaffStatus;
@@ -57,9 +58,9 @@ type MemoryStaffApplication = {
   appliedAt: string;
   reviewedAt: string | null;
 };
-type MemoryPatient = { id: string; userId: number; openId: string; displayName: string; phone: string | null; preferredHospital: string | null; createdAt: string; updatedAt: string };
-type MemoryAppointment = { id: string; token?: string; doctorId?: string; patientUserId: number; patientOpenId: string; hospitalName: string; clinician: string; appointmentAt: string; reason: string; status: AppointmentStatus; staffNote: string | null; createdAt: string; updatedAt: string };
-type MemoryRequest = { id: string; patientUserId: number; patientOpenId: string; hospitalName: string; category: string; description: string; status: ServiceRequestStatus; staffReply: string | null; createdAt: string; updatedAt: string };
+type MemoryPatient = { id: string; userId: number; openId: string; displayName: string; phone: string | null; preferredHospital: string | null; hospital_id: string; createdAt: string; updatedAt: string };
+type MemoryAppointment = { id: string; token?: string; doctorId?: string; patientUserId: number; patientOpenId: string; hospitalName: string; hospital_id: string; clinician: string; appointmentAt: string; reason: string; status: AppointmentStatus; staffNote: string | null; createdAt: string; updatedAt: string };
+type MemoryRequest = { id: string; patientUserId: number; patientOpenId: string; hospitalName: string; hospital_id: string; category: string; description: string; status: ServiceRequestStatus; staffReply: string | null; createdAt: string; updatedAt: string };
 type MemoryNotification = { id: string; userId: number; openId: string; title: string; body: string; readAt: string | null; createdAt: string };
 type MemoryAudit = { id: string; actorUserId: number | null; actorOpenId: string | null; action: string; targetType: string | null; targetId: string | null; detail: string; createdAt: string };
 
@@ -77,6 +78,24 @@ const memory = {
 const iso = (value: Date | string | null | undefined) => value ? new Date(value).toISOString() : null;
 const id = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const clean = (value: string, max: number) => value.trim().replace(/[<>]/g, "").slice(0, max);
+
+export function getVerifiedHospitalId(user: User): string {
+  // Authoritative verified user record:
+  if (user && (user as any).hospital_id) {
+    return (user as any).hospital_id;
+  }
+  // Verified staff application in memory:
+  const staff = memory.applications.get(user.openId);
+  if (staff?.hospital_id) {
+    return staff.hospital_id;
+  }
+  // Verified patient profile in memory:
+  const patient = memory.patients.get(user.openId);
+  if (patient?.hospital_id) {
+    return patient.hospital_id;
+  }
+  return "HOSP-DEFAULT";
+}
 
 function requireUser(user: User | null): User {
   if (!user) throw new TRPCError({ code: "UNAUTHORIZED", message: "Authentication is required for the hospital portal." });
@@ -99,6 +118,7 @@ async function getApprovedStaff(user: User) {
 export async function getPortalRole(userInput: User | null): Promise<PortalRole> {
   const user = requireUser(userInput);
   if (user.role === "admin") return "admin";
+  const hospId = getVerifiedHospitalId(user);
   if (user.openId.startsWith("patient") && !memory.patients.has(user.openId)) {
     memory.patients.set(user.openId, {
       id: `pt-${user.id}`,
@@ -107,6 +127,7 @@ export async function getPortalRole(userInput: User | null): Promise<PortalRole>
       displayName: user.name || "Rahul Kumar",
       phone: "+91 98765 43210",
       preferredHospital: "Saint Elara Medical Centre",
+      hospital_id: hospId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
@@ -116,6 +137,7 @@ export async function getPortalRole(userInput: User | null): Promise<PortalRole>
         patientUserId: user.id,
         patientOpenId: user.openId,
         hospitalName: "Saint Elara Medical Centre",
+        hospital_id: hospId,
         clinician: "Dr. Priya Nair",
         appointmentAt: new Date(Date.now() + 86400000).toISOString(),
         reason: "Cardiovascular check-up and ECG review",
@@ -134,6 +156,7 @@ export async function getPortalRole(userInput: User | null): Promise<PortalRole>
       applicantName: user.name || "Dr. Arjun Mehta",
       email: user.email || "staff@saintelara.org",
       hospitalName: "Saint Elara Medical Centre",
+      hospital_id: hospId,
       employeeId: "EMP-2024-0456",
       requestedRole: "hospital_staff",
       status: "approved",
@@ -186,10 +209,11 @@ export async function registerPatient(userInput: User | null, input: { displayNa
   requirePortalRole(role, ["unregistered", "patient"]);
   const displayName = clean(input.displayName, 180);
   if (displayName.length < 2) throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a valid patient display name." });
+  const hospital_id = getVerifiedHospitalId(user);
   const db = await portalDb();
-  const values = { userId: user.id, openId: user.openId, displayName, phone: input.phone ? clean(input.phone, 40) : null, preferredHospital: input.preferredHospital ? clean(input.preferredHospital, 180) : null };
+  const values = { userId: user.id, openId: user.openId, displayName, phone: input.phone ? clean(input.phone, 40) : null, preferredHospital: input.preferredHospital ? clean(input.preferredHospital, 180) : null, hospital_id };
   if (db) {
-    await db.insert(patientProfiles).values(values).onDuplicateKeyUpdate({ set: { displayName, phone: values.phone, preferredHospital: values.preferredHospital, updatedAt: new Date() } });
+    await db.insert(patientProfiles).values(values).onDuplicateKeyUpdate({ set: { displayName, phone: values.phone, preferredHospital: values.preferredHospital, hospital_id, updatedAt: new Date() } });
     await writeAudit(user, "patient_profile_saved", "Patient profile created or updated", "patient", user.openId);
     return (await db.select().from(patientProfiles).where(eq(patientProfiles.openId, user.openId)).limit(1))[0];
   }
@@ -210,10 +234,11 @@ export async function applyForStaff(userInput: User | null, input: { hospitalNam
   const hospitalName = clean(input.hospitalName, 180);
   const employeeId = clean(input.employeeId, 120);
   if (hospitalName.length < 3 || employeeId.length < 3) throw new TRPCError({ code: "BAD_REQUEST", message: "Hospital name and employee ID are required for verification." });
+  const hospital_id = getVerifiedHospitalId(user);
   const db = await portalDb();
-  const values = { userId: user.id, openId: user.openId, applicantName: clean(user.name || "Hospital applicant", 180), email: user.email ?? null, hospitalName, employeeId, requestedRole: input.requestedRole, status: "pending" as const, reviewNote: null };
+  const values = { userId: user.id, openId: user.openId, applicantName: clean(user.name || "Hospital applicant", 180), email: user.email ?? null, hospitalName, employeeId, requestedRole: input.requestedRole, status: "pending" as const, reviewNote: null, hospital_id };
   if (db) {
-    await db.insert(staffApplications).values(values).onDuplicateKeyUpdate({ set: { hospitalName, employeeId, requestedRole: input.requestedRole, status: "pending", reviewNote: null, appliedAt: new Date(), reviewedAt: null, reviewedBy: null } });
+    await db.insert(staffApplications).values(values).onDuplicateKeyUpdate({ set: { hospitalName, employeeId, requestedRole: input.requestedRole, status: "pending", reviewNote: null, hospital_id, appliedAt: new Date(), reviewedAt: null, reviewedBy: null } });
     const saved = (await db.select().from(staffApplications).where(eq(staffApplications.openId, user.openId)).limit(1))[0];
     await writeAudit(user, "staff_application_submitted", `Staff application submitted for ${hospitalName}`, "staff_application", String(saved?.id ?? user.openId));
     return saved;
@@ -254,12 +279,13 @@ export function getDoctors(filters?: { specialization?: string; hospital?: strin
 
 export async function getAppointments(userInput: User | null) {
   const user = requireUser(userInput);
+  const hospital_id = getVerifiedHospitalId(user);
   const db = await portalDb();
   if (db) {
-    return await db.select().from(appointments).where(eq(appointments.patientOpenId, user.openId)).orderBy(desc(appointments.appointmentAt));
+    return await db.select().from(appointments).where(and(eq(appointments.patientOpenId, user.openId), eq(appointments.hospital_id, hospital_id))).orderBy(desc(appointments.appointmentAt));
   }
   return [...memory.appointments.values()]
-    .filter(row => row.patientOpenId === user.openId)
+    .filter(row => row.patientOpenId === user.openId && row.hospital_id === hospital_id)
     .sort((a, b) => b.appointmentAt.localeCompare(a.appointmentAt));
 }
 
@@ -289,11 +315,14 @@ export async function bookAppointment(
     throw new TRPCError({ code: "BAD_REQUEST", message: "Choose a future appointment time (at least 30 minutes from now)." });
   }
 
+  // Set hospital_id strictly on the server from verified user's record, never from client input
+  const hospital_id = getVerifiedHospitalId(user);
   const token = `MRQ-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
   const values = {
     patientUserId: user.id,
     patientOpenId: user.openId,
     hospitalName: clean(hospitalName, 180),
+    hospital_id,
     clinician: clean(clinician, 180),
     appointmentAt,
     reason: clean(input.reason, 500),
@@ -327,14 +356,15 @@ export async function cancelAppointment(userInput: User | null, appointmentId: s
   const user = requireUser(userInput);
   const role = await getPortalRole(user);
   requirePortalRole(role, ["patient"]);
+  const hospital_id = getVerifiedHospitalId(user);
   const db = await portalDb();
   if (db) {
-    const row = (await db.select().from(appointments).where(and(eq(appointments.id, Number(appointmentId)), eq(appointments.patientOpenId, user.openId))).limit(1))[0];
+    const row = (await db.select().from(appointments).where(and(eq(appointments.id, Number(appointmentId)), eq(appointments.patientOpenId, user.openId), eq(appointments.hospital_id, hospital_id))).limit(1))[0];
     if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Appointment not found." });
     if (["cancelled", "completed"].includes(row.status)) throw new TRPCError({ code: "CONFLICT", message: "This appointment cannot be cancelled." });
     await db.update(appointments).set({ status: "cancelled", updatedAt: new Date() }).where(eq(appointments.id, row.id));
   } else {
-    const row = [...memory.appointments.values()].find(item => item.id === appointmentId && item.patientOpenId === user.openId);
+    const row = [...memory.appointments.values()].find(item => item.id === appointmentId && item.patientOpenId === user.openId && item.hospital_id === hospital_id);
     if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Appointment not found." });
     if (["cancelled", "completed"].includes(row.status)) throw new TRPCError({ code: "CONFLICT", message: "This appointment cannot be cancelled." });
     row.status = "cancelled";
@@ -349,7 +379,8 @@ export async function createServiceRequest(userInput: User | null, input: { hosp
   const role = await getPortalRole(user);
   requirePortalRole(role, ["patient"]);
   if (input.description.trim().length < 5) throw new TRPCError({ code: "BAD_REQUEST", message: "Describe the service request in at least five characters." });
-  const values = { patientUserId: user.id, patientOpenId: user.openId, hospitalName: clean(input.hospitalName, 180), category: clean(input.category, 100), description: clean(input.description, 2000), status: "submitted" as const, staffReply: null };
+  const hospital_id = getVerifiedHospitalId(user);
+  const values = { patientUserId: user.id, patientOpenId: user.openId, hospitalName: clean(input.hospitalName, 180), hospital_id, category: clean(input.category, 100), description: clean(input.description, 2000), status: "submitted" as const, staffReply: null };
   const db = await portalDb();
   if (db) {
     const result = await db.insert(serviceRequests).values(values);
@@ -367,6 +398,7 @@ export async function updateStaffWorkflow(userInput: User | null, input: { type:
   const role = await getPortalRole(user);
   requirePortalRole(role, ["staff", "admin"]);
   const staff = role === "staff" ? await getApprovedStaff(user) : null;
+  const hospital_id = role === "staff" ? getVerifiedHospitalId(user) : null;
   const hospitalName = staff?.hospitalName;
   const db = await portalDb();
   if (input.type === "appointment") {
@@ -374,11 +406,11 @@ export async function updateStaffWorkflow(userInput: User | null, input: { type:
     if (!["confirmed", "cancelled", "completed"].includes(status)) throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid appointment status." });
     if (db) {
       const row = (await db.select().from(appointments).where(eq(appointments.id, Number(input.id))).limit(1))[0];
-      if (!row || (hospitalName && row.hospitalName !== hospitalName)) throw new TRPCError({ code: "NOT_FOUND", message: "Appointment is outside your approved hospital scope." });
+      if (!row || (hospital_id && row.hospital_id !== hospital_id) || (hospitalName && row.hospitalName !== hospitalName)) throw new TRPCError({ code: "NOT_FOUND", message: "Appointment is outside your approved hospital scope." });
       await db.update(appointments).set({ status, staffNote: input.note ? clean(input.note, 1000) : null, updatedAt: new Date() }).where(eq(appointments.id, row.id));
     } else {
       const row = memory.appointments.get(input.id);
-      if (!row || (hospitalName && row.hospitalName !== hospitalName)) throw new TRPCError({ code: "NOT_FOUND", message: "Appointment is outside your approved hospital scope." });
+      if (!row || (hospital_id && row.hospital_id !== hospital_id) || (hospitalName && row.hospitalName !== hospitalName)) throw new TRPCError({ code: "NOT_FOUND", message: "Appointment is outside your approved hospital scope." });
       row.status = status;
       row.staffNote = input.note ? clean(input.note, 1000) : null;
       row.updatedAt = new Date().toISOString();
@@ -388,11 +420,11 @@ export async function updateStaffWorkflow(userInput: User | null, input: { type:
     if (!["in_review", "resolved", "closed"].includes(status)) throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid service-request status." });
     if (db) {
       const row = (await db.select().from(serviceRequests).where(eq(serviceRequests.id, Number(input.id))).limit(1))[0];
-      if (!row || (hospitalName && row.hospitalName !== hospitalName)) throw new TRPCError({ code: "NOT_FOUND", message: "Request is outside your approved hospital scope." });
+      if (!row || (hospital_id && row.hospital_id !== hospital_id) || (hospitalName && row.hospitalName !== hospitalName)) throw new TRPCError({ code: "NOT_FOUND", message: "Request is outside your approved hospital scope." });
       await db.update(serviceRequests).set({ status, staffReply: input.note ? clean(input.note, 2000) : null, updatedAt: new Date() }).where(eq(serviceRequests.id, row.id));
     } else {
       const row = memory.requests.get(input.id);
-      if (!row || (hospitalName && row.hospitalName !== hospitalName)) throw new TRPCError({ code: "NOT_FOUND", message: "Request is outside your approved hospital scope." });
+      if (!row || (hospital_id && row.hospital_id !== hospital_id) || (hospitalName && row.hospitalName !== hospitalName)) throw new TRPCError({ code: "NOT_FOUND", message: "Request is outside your approved hospital scope." });
       row.status = status;
       row.staffReply = input.note ? clean(input.note, 2000) : null;
       row.updatedAt = new Date().toISOString();
@@ -405,6 +437,7 @@ export async function updateStaffWorkflow(userInput: User | null, input: { type:
 export async function getPortalSnapshot(userInput: User | null) {
   const user = requireUser(userInput);
   const role = await getPortalRole(user);
+  const hospital_id = getVerifiedHospitalId(user);
   const db = await portalDb();
   const application = await findStaffApplication(user.openId);
   let profile: unknown = null;
@@ -415,27 +448,39 @@ export async function getPortalSnapshot(userInput: User | null) {
   let staffRequests: unknown[] = [];
   let pendingApplications: unknown[] = [];
   if (db) {
-    profile = (await db.select().from(patientProfiles).where(eq(patientProfiles.openId, user.openId)).limit(1))[0] ?? null;
-    userAppointments = await db.select().from(appointments).where(eq(appointments.patientOpenId, user.openId)).orderBy(desc(appointments.appointmentAt));
-    userRequests = await db.select().from(serviceRequests).where(eq(serviceRequests.patientOpenId, user.openId)).orderBy(desc(serviceRequests.createdAt));
+    profile = (await db.select().from(patientProfiles).where(and(eq(patientProfiles.openId, user.openId), eq(patientProfiles.hospital_id, hospital_id))).limit(1))[0] ?? null;
+    userAppointments = await db.select().from(appointments).where(and(eq(appointments.patientOpenId, user.openId), eq(appointments.hospital_id, hospital_id))).orderBy(desc(appointments.appointmentAt));
+    userRequests = await db.select().from(serviceRequests).where(and(eq(serviceRequests.patientOpenId, user.openId), eq(serviceRequests.hospital_id, hospital_id))).orderBy(desc(serviceRequests.createdAt));
     notifications = await db.select().from(portalNotifications).where(eq(portalNotifications.openId, user.openId)).orderBy(desc(portalNotifications.createdAt)).limit(20);
     if (role === "staff" || role === "admin") {
-      const hospital = role === "staff" ? (application as any)?.hospitalName : null;
-      const allAppointments = await db.select().from(appointments).orderBy(desc(appointments.appointmentAt));
-      const allRequests = await db.select().from(serviceRequests).orderBy(desc(serviceRequests.createdAt));
-      staffAppointments = hospital ? allAppointments.filter(row => row.hospitalName === hospital) : allAppointments;
-      staffRequests = hospital ? allRequests.filter(row => row.hospitalName === hospital) : allRequests;
+      const targetHospitalId = role === "staff" ? hospital_id : null;
+      const allAppointments = targetHospitalId
+        ? await db.select().from(appointments).where(eq(appointments.hospital_id, targetHospitalId)).orderBy(desc(appointments.appointmentAt))
+        : await db.select().from(appointments).orderBy(desc(appointments.appointmentAt));
+      const allRequests = targetHospitalId
+        ? await db.select().from(serviceRequests).where(eq(serviceRequests.hospital_id, targetHospitalId)).orderBy(desc(serviceRequests.createdAt))
+        : await db.select().from(serviceRequests).orderBy(desc(serviceRequests.createdAt));
+      staffAppointments = allAppointments;
+      staffRequests = allRequests;
     }
     if (role === "admin") pendingApplications = await db.select().from(staffApplications).orderBy(desc(staffApplications.appliedAt));
   } else {
-    profile = memory.patients.get(user.openId) ?? null;
-    userAppointments = [...memory.appointments.values()].filter(row => row.patientOpenId === user.openId).sort((a, b) => b.appointmentAt.localeCompare(a.appointmentAt));
-    userRequests = [...memory.requests.values()].filter(row => row.patientOpenId === user.openId).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    notifications = [...memory.notifications.values()].filter(row => row.openId === user.openId).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 20);
+    const pat = memory.patients.get(user.openId);
+    profile = (pat && pat.hospital_id === hospital_id) ? pat : null;
+    userAppointments = [...memory.appointments.values()]
+      .filter(row => row.patientOpenId === user.openId && row.hospital_id === hospital_id)
+      .sort((a, b) => b.appointmentAt.localeCompare(a.appointmentAt));
+    userRequests = [...memory.requests.values()]
+      .filter(row => row.patientOpenId === user.openId && row.hospital_id === hospital_id)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    notifications = [...memory.notifications.values()]
+      .filter(row => row.openId === user.openId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, 20);
     if (role === "staff" || role === "admin") {
-      const hospital = role === "staff" ? (application as MemoryStaffApplication | null)?.hospitalName : null;
-      staffAppointments = [...memory.appointments.values()].filter(row => !hospital || row.hospitalName === hospital);
-      staffRequests = [...memory.requests.values()].filter(row => !hospital || row.hospitalName === hospital);
+      const targetHospitalId = role === "staff" ? hospital_id : null;
+      staffAppointments = [...memory.appointments.values()].filter(row => !targetHospitalId || row.hospital_id === targetHospitalId);
+      staffRequests = [...memory.requests.values()].filter(row => !targetHospitalId || row.hospital_id === targetHospitalId);
     }
     if (role === "admin") pendingApplications = [...memory.applications.values()].sort((a, b) => b.appliedAt.localeCompare(a.appliedAt));
   }

@@ -42,7 +42,9 @@ import {
   FileSpreadsheet,
   AlertCircle,
   Printer,
+  Loader2,
 } from "lucide-react";
+import { trpc } from "@/lib/trpc";
 import { useAuthUser } from "@/contexts/AuthContext";
 import AiAppointmentBooking from "@/components/AiAppointmentBooking";
 import {
@@ -50,55 +52,61 @@ import {
   SimplifiedReportSimplifier,
   SimplifiedOfflineSync,
 } from "@/components/SimplifiedHtSuite";
+import AdminConsoleView from "@/components/AdminConsoleView";
+import StaffConsoleView from "@/components/StaffConsoleView";
+import DoctorConsoleView from "@/components/DoctorConsoleView";
+import RegionalOperationsView from "@/components/RegionalOperationsView";
 import "./dashboard-suite.css";
 
-// 40 Curated Specialist Doctors Across Hospital Departments
+// 40 Curated Specialist Doctors Across Hospital Departments with Profile Photos
 const ALL_DOCTORS = [
-  { id: 1, name: "Dr. Om Mishra", specialty: "Cardiology", qualifications: "MBBS, MD, DM (Cardiology)", experience: "14 yrs", fee: "₹800", rating: 4.9, reviews: 142, hours: "09:00 - 14:00", nmc: "NMC-2010-4491", wing: "Cardiology Block A" },
-  { id: 2, name: "Dr. Arjun Mehta", specialty: "General Medicine", qualifications: "MBBS, MD (Internal Medicine)", experience: "11 yrs", fee: "₹700", rating: 4.8, reviews: 98, hours: "10:00 - 15:00", nmc: "NMC-2016-4421", wing: "OPD Complex Wing B" },
-  { id: 3, name: "Dr. Priya Nair", specialty: "Cardiology", qualifications: "MBBS, MD, DNB (Cardiology)", experience: "12 yrs", fee: "₹900", rating: 4.9, reviews: 116, hours: "09:30 - 13:30", nmc: "NMC-2012-9843", wing: "Cardiology Block A" },
-  { id: 4, name: "Dr. Sneha Rao", specialty: "Neurology", qualifications: "MBBS, DM (Neurology)", experience: "15 yrs", fee: "₹1,000", rating: 5.0, reviews: 88, hours: "11:00 - 16:00", nmc: "NMC-2009-1123", wing: "Neurosciences Tower" },
-  { id: 5, name: "Dr. Rajesh Gupta", specialty: "Pediatrics", qualifications: "MBBS, MD (Pediatrics)", experience: "9 yrs", fee: "₹650", rating: 4.7, reviews: 74, hours: "09:00 - 13:00", nmc: "NMC-2015-8841", wing: "Child Health Pavilion" },
-  { id: 6, name: "Dr. Ananya Sharma", specialty: "Dermatology", qualifications: "MBBS, MD (Dermatology)", experience: "8 yrs", fee: "₹750", rating: 4.8, reviews: 62, hours: "14:00 - 18:00", nmc: "NMC-2018-7712", wing: "Aesthetic & Skin Wing" },
-  { id: 7, name: "Dr. Vikram Sethi", specialty: "Orthopedics", qualifications: "MBBS, MS (Orthopedics), MCh", experience: "16 yrs", fee: "₹850", rating: 4.9, reviews: 104, hours: "10:00 - 14:00", nmc: "NMC-2008-3312", wing: "Bone & Joint Centre" },
-  { id: 8, name: "Dr. Kavita Joshi", specialty: "Gynecology", qualifications: "MBBS, MS (Obstetrics & Gynae)", experience: "13 yrs", fee: "₹800", rating: 4.8, reviews: 91, hours: "11:00 - 15:30", nmc: "NMC-2011-5521", wing: "Women's Health Centre" },
-  { id: 9, name: "Dr. Rakesh Verma", specialty: "Pulmonology", qualifications: "MBBS, MD (Pulmonary Medicine)", experience: "10 yrs", fee: "₹750", rating: 4.7, reviews: 56, hours: "09:00 - 12:30", nmc: "NMC-2014-6632", wing: "Respiratory Care Unit" },
-  { id: 10, name: "Dr. Sunita Sen", specialty: "Endocrinology", qualifications: "MBBS, DM (Endocrinology)", experience: "12 yrs", fee: "₹950", rating: 4.9, reviews: 83, hours: "13:00 - 17:00", nmc: "NMC-2013-1190", wing: "Metabolic Clinic" },
-  { id: 11, name: "Dr. Alok Nath", specialty: "Gastroenterology", qualifications: "MBBS, DM (Gastroenterology)", experience: "14 yrs", fee: "₹1,100", rating: 4.8, reviews: 79, hours: "10:00 - 14:00", nmc: "NMC-2010-2245", wing: "Digestive Health Wing" },
-  { id: 12, name: "Dr. Pooja Singhal", specialty: "Ophthalmology", qualifications: "MBBS, MS (Ophthalmology)", experience: "7 yrs", fee: "₹600", rating: 4.7, reviews: 49, hours: "15:00 - 19:00", nmc: "NMC-2019-9941", wing: "Eye Care Centre" },
-  { id: 13, name: "Dr. Manish Mathur", specialty: "Nephrology", qualifications: "MBBS, DM (Nephrology)", experience: "13 yrs", fee: "₹1,000", rating: 4.9, reviews: 67, hours: "09:30 - 13:00", nmc: "NMC-2011-8894", wing: "Kidney Care & Dialysis" },
-  { id: 14, name: "Dr. Meenakshi Sundaram", specialty: "Oncology", qualifications: "MBBS, MD, DM (Medical Oncology)", experience: "17 yrs", fee: "₹1,200", rating: 5.0, reviews: 112, hours: "11:30 - 16:30", nmc: "NMC-2007-1049", wing: "Cancer Care Institute" },
-  { id: 15, name: "Dr. Deepak Chawla", specialty: "ENT", qualifications: "MBBS, MS (Otorhinolaryngology)", experience: "9 yrs", fee: "₹650", rating: 4.7, reviews: 44, hours: "10:00 - 13:30", nmc: "NMC-2016-7734", wing: "ENT Head & Neck" },
-  { id: 16, name: "Dr. Shweta Kulkarni", specialty: "Psychiatry", qualifications: "MBBS, MD (Psychiatry)", experience: "11 yrs", fee: "₹850", rating: 4.9, reviews: 86, hours: "14:00 - 18:30", nmc: "NMC-2014-2201", wing: "Mind & Behavioral Wing" },
-  { id: 17, name: "Dr. Harish Bhatt", specialty: "Urology", qualifications: "MBBS, MCh (Urology)", experience: "15 yrs", fee: "₹950", rating: 4.8, reviews: 71, hours: "10:00 - 14:00", nmc: "NMC-2009-4102", wing: "Urology & Lithotripsy" },
-  { id: 18, name: "Dr. Shalini Deshmukh", specialty: "Rheumatology", qualifications: "MBBS, MD, Fellowship Rheumatology", experience: "10 yrs", fee: "₹850", rating: 4.9, reviews: 58, hours: "11:00 - 15:00", nmc: "NMC-2015-3309", wing: "Immunology Center" },
-  { id: 19, name: "Dr. Vinay Trivedi", specialty: "General Surgery", qualifications: "MBBS, MS, FMAS (Laparoscopy)", experience: "18 yrs", fee: "₹900", rating: 4.8, reviews: 95, hours: "09:00 - 13:00", nmc: "NMC-2006-1188", wing: "Surgical Suites Wing C" },
-  { id: 20, name: "Dr. Archana Pillai", specialty: "Pathology", qualifications: "MBBS, MD (Pathology)", experience: "12 yrs", fee: "₹500", rating: 4.9, reviews: 40, hours: "08:00 - 16:00", nmc: "NMC-2012-6611", wing: "Central Diagnostic Labs" },
-  { id: 21, name: "Dr. Gaurav Kapoor", specialty: "Cardiology", qualifications: "MBBS, MD, FACC (Interventional)", experience: "16 yrs", fee: "₹1,000", rating: 5.0, reviews: 130, hours: "10:00 - 15:00", nmc: "NMC-2008-7711", wing: "Cardiology Block A" },
-  { id: 22, name: "Dr. Tanya Varma", specialty: "Pediatrics", qualifications: "MBBS, DNB (Neonatology)", experience: "8 yrs", fee: "₹700", rating: 4.8, reviews: 63, hours: "11:00 - 16:00", nmc: "NMC-2017-4921", wing: "NICU & Child Health" },
-  { id: 23, name: "Dr. Sameer Rizvi", specialty: "Orthopedics", qualifications: "MBBS, MS (Joint Replacement)", experience: "14 yrs", fee: "₹900", rating: 4.9, reviews: 89, hours: "09:30 - 13:30", nmc: "NMC-2010-8812", wing: "Bone & Joint Centre" },
-  { id: 24, name: "Dr. Reena Saxena", specialty: "Dermatology", qualifications: "MBBS, MD (Cosmetic Dermatology)", experience: "11 yrs", fee: "₹800", rating: 4.8, reviews: 75, hours: "13:00 - 17:30", nmc: "NMC-2014-9901", wing: "Aesthetic & Skin Wing" },
-  { id: 25, name: "Dr. Arvind Patel", specialty: "Gastroenterology", qualifications: "MBBS, MD, DM (Hepatology)", experience: "13 yrs", fee: "₹1,050", rating: 4.9, reviews: 82, hours: "10:30 - 15:00", nmc: "NMC-2011-3044", wing: "Digestive Health Wing" },
-  { id: 26, name: "Dr. Neha Agarwal", specialty: "Gynecology", qualifications: "MBBS, DGO, DNB (OBG)", experience: "9 yrs", fee: "₹750", rating: 4.7, reviews: 54, hours: "09:00 - 13:00", nmc: "NMC-2016-2210", wing: "Women's Health Centre" },
-  { id: 27, name: "Dr. Nikhil Chopra", specialty: "Neurology", qualifications: "MBBS, MD, DM (Stroke Specialist)", experience: "16 yrs", fee: "₹1,100", rating: 5.0, reviews: 97, hours: "12:00 - 17:00", nmc: "NMC-2008-5541", wing: "Neurosciences Tower" },
-  { id: 28, name: "Dr. Jyoti Malviya", specialty: "Endocrinology", qualifications: "MBBS, MD, DNB (Diabetology)", experience: "10 yrs", fee: "₹800", rating: 4.8, reviews: 68, hours: "09:30 - 14:00", nmc: "NMC-2015-7790", wing: "Metabolic Clinic" },
-  { id: 29, name: "Dr. Sanjay Kaul", specialty: "Pulmonology", qualifications: "MBBS, DNB (Critical Care Pulmo)", experience: "15 yrs", fee: "₹850", rating: 4.9, reviews: 85, hours: "10:00 - 14:30", nmc: "NMC-2009-1234", wing: "Respiratory Care Unit" },
-  { id: 30, name: "Dr. Preeti Bajaj", specialty: "General Medicine", qualifications: "MBBS, MD (Family Medicine)", experience: "12 yrs", fee: "₹650", rating: 4.8, reviews: 92, hours: "09:00 - 13:30", nmc: "NMC-2013-8833", wing: "OPD Complex Wing B" },
-  { id: 31, name: "Dr. Aman Khurana", specialty: "Oncology", qualifications: "MBBS, MS, MCh (Surgical Oncology)", experience: "15 yrs", fee: "₹1,250", rating: 5.0, reviews: 106, hours: "11:00 - 16:00", nmc: "NMC-2009-9021", wing: "Cancer Care Institute" },
-  { id: 32, name: "Dr. Ritu Choudhary", specialty: "Ophthalmology", qualifications: "MBBS, MS (Cornea & Refractive)", experience: "10 yrs", fee: "₹700", rating: 4.7, reviews: 52, hours: "14:00 - 18:00", nmc: "NMC-2015-3341", wing: "Eye Care Centre" },
-  { id: 33, name: "Dr. Vivek Murthy", specialty: "Nephrology", qualifications: "MBBS, MD, DM (Renal Transplant)", experience: "17 yrs", fee: "₹1,150", rating: 4.9, reviews: 78, hours: "09:00 - 13:00", nmc: "NMC-2007-4402", wing: "Kidney Care & Dialysis" },
-  { id: 34, name: "Dr. Nalini Swaminathan", specialty: "Psychiatry", qualifications: "MBBS, DPM, MD (Child Psychiatry)", experience: "14 yrs", fee: "₹900", rating: 4.9, reviews: 73, hours: "13:30 - 18:00", nmc: "NMC-2010-6699", wing: "Mind & Behavioral Wing" },
-  { id: 35, name: "Dr. Tarun Grover", specialty: "General Surgery", qualifications: "MBBS, MS (Vascular & General)", experience: "16 yrs", fee: "₹950", rating: 4.8, reviews: 88, hours: "10:00 - 14:00", nmc: "NMC-2008-8877", wing: "Surgical Suites Wing C" },
-  { id: 36, name: "Dr. Madhuri Dixit", specialty: "Cardiology", qualifications: "MBBS, MD, DM (Electrophysiology)", experience: "13 yrs", fee: "₹950", rating: 4.9, reviews: 99, hours: "09:00 - 14:00", nmc: "NMC-2012-1100", wing: "Cardiology Block A" },
-  { id: 37, name: "Dr. Rohit Aggarwal", specialty: "Orthopedics", qualifications: "MBBS, MS (Spine Surgery)", experience: "15 yrs", fee: "₹1,000", rating: 4.9, reviews: 110, hours: "11:00 - 15:30", nmc: "NMC-2009-7722", wing: "Bone & Joint Centre" },
-  { id: 38, name: "Dr. Sunayana Bose", specialty: "ENT", qualifications: "MBBS, DLO, DNB (Cochlear Implant)", experience: "12 yrs", fee: "₹750", rating: 4.8, reviews: 61, hours: "10:30 - 14:30", nmc: "NMC-2013-5590", wing: "ENT Head & Neck" },
-  { id: 39, name: "Dr. Abhay Deshpande", specialty: "Urology", qualifications: "MBBS, MS, MCh (Robotic Uro)", experience: "14 yrs", fee: "₹1,050", rating: 4.9, reviews: 84, hours: "09:30 - 13:30", nmc: "NMC-2011-4477", wing: "Urology & Lithotripsy" },
-  { id: 40, name: "Dr. Pallavi Roy", specialty: "General Medicine", qualifications: "MBBS, MD (Critical Care & Medicine)", experience: "10 yrs", fee: "₹700", rating: 4.8, reviews: 77, hours: "10:00 - 15:00", nmc: "NMC-2015-9921", wing: "OPD Complex Wing B" },
+  { id: 1, name: "Dr. Om Mishra", specialty: "Cardiology", qualifications: "MBBS, MD, DM (Cardiology)", experience: "14 yrs", fee: "₹800", rating: 4.9, reviews: 142, hours: "09:00 - 14:00", nmc: "NMC-2010-4491", wing: "Cardiology Block A", image: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=240&auto=format&fit=crop&q=80" },
+  { id: 2, name: "Dr. Arjun Mehta", specialty: "General Medicine", qualifications: "MBBS, MD (Internal Medicine)", experience: "11 yrs", fee: "₹700", rating: 4.8, reviews: 98, hours: "10:00 - 15:00", nmc: "NMC-2016-4421", wing: "OPD Complex Wing B", image: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=240&auto=format&fit=crop&q=80" },
+  { id: 3, name: "Dr. Priya Nair", specialty: "Cardiology", qualifications: "MBBS, MD, DNB (Cardiology)", experience: "12 yrs", fee: "₹900", rating: 4.9, reviews: 116, hours: "09:30 - 13:30", nmc: "NMC-2012-9843", wing: "Cardiology Block A", image: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=240&auto=format&fit=crop&q=80" },
+  { id: 4, name: "Dr. Sneha Rao", specialty: "Neurology", qualifications: "MBBS, DM (Neurology)", experience: "15 yrs", fee: "₹1,000", rating: 5.0, reviews: 88, hours: "11:00 - 16:00", nmc: "NMC-2009-1123", wing: "Neurosciences Tower", image: "https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=240&auto=format&fit=crop&q=80" },
+  { id: 5, name: "Dr. Rajesh Gupta", specialty: "Pediatrics", qualifications: "MBBS, MD (Pediatrics)", experience: "9 yrs", fee: "₹650", rating: 4.7, reviews: 74, hours: "09:00 - 13:00", nmc: "NMC-2015-8841", wing: "Child Health Pavilion", image: "https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=240&auto=format&fit=crop&q=80" },
+  { id: 6, name: "Dr. Ananya Sharma", specialty: "Dermatology", qualifications: "MBBS, MD (Dermatology)", experience: "8 yrs", fee: "₹750", rating: 4.8, reviews: 62, hours: "14:00 - 18:00", nmc: "NMC-2018-7712", wing: "Aesthetic & Skin Wing", image: "https://images.unsplash.com/photo-1651008376811-b90baee60c1f?w=240&auto=format&fit=crop&q=80" },
+  { id: 7, name: "Dr. Vikram Sethi", specialty: "Orthopedics", qualifications: "MBBS, MS (Orthopedics), MCh", experience: "16 yrs", fee: "₹850", rating: 4.9, reviews: 104, hours: "10:00 - 14:00", nmc: "NMC-2008-3312", wing: "Bone & Joint Centre", image: "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=240&auto=format&fit=crop&q=80" },
+  { id: 8, name: "Dr. Kavita Joshi", specialty: "Gynecology", qualifications: "MBBS, MS (Obstetrics & Gynae)", experience: "13 yrs", fee: "₹800", rating: 4.8, reviews: 91, hours: "11:00 - 15:30", nmc: "NMC-2011-5521", wing: "Women's Health Centre", image: "https://images.unsplash.com/photo-1527613426441-4da17471b66d?w=240&auto=format&fit=crop&q=80" },
+  { id: 9, name: "Dr. Rakesh Verma", specialty: "Pulmonology", qualifications: "MBBS, MD (Pulmonary Medicine)", experience: "10 yrs", fee: "₹750", rating: 4.7, reviews: 56, hours: "09:00 - 12:30", nmc: "NMC-2014-6632", wing: "Respiratory Care Unit", image: "https://images.unsplash.com/photo-1622902046580-2b47f47f5471?w=240&auto=format&fit=crop&q=80" },
+  { id: 10, name: "Dr. Sunita Sen", specialty: "Endocrinology", qualifications: "MBBS, DM (Endocrinology)", experience: "12 yrs", fee: "₹950", rating: 4.9, reviews: 83, hours: "13:00 - 17:00", nmc: "NMC-2013-1190", wing: "Metabolic Clinic", image: "https://images.unsplash.com/photo-1551601651-2a8555f1a136?w=240&auto=format&fit=crop&q=80" },
+  { id: 11, name: "Dr. Alok Nath", specialty: "Gastroenterology", qualifications: "MBBS, DM (Gastroenterology)", experience: "14 yrs", fee: "₹1,100", rating: 4.8, reviews: 79, hours: "10:00 - 14:00", nmc: "NMC-2010-2245", wing: "Digestive Health Wing", image: "https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=240&auto=format&fit=crop&q=80" },
+  { id: 12, name: "Dr. Pooja Singhal", specialty: "Ophthalmology", qualifications: "MBBS, MS (Ophthalmology)", experience: "7 yrs", fee: "₹600", rating: 4.7, reviews: 49, hours: "15:00 - 19:00", nmc: "NMC-2019-9941", wing: "Eye Care Centre", image: "https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=240&auto=format&fit=crop&q=80" },
+  { id: 13, name: "Dr. Manish Mathur", specialty: "Nephrology", qualifications: "MBBS, DM (Nephrology)", experience: "13 yrs", fee: "₹1,000", rating: 4.9, reviews: 67, hours: "09:30 - 13:00", nmc: "NMC-2011-8894", wing: "Kidney Care & Dialysis", image: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=240&auto=format&fit=crop&q=80" },
+  { id: 14, name: "Dr. Meenakshi Sundaram", specialty: "Oncology", qualifications: "MBBS, MD, DM (Medical Oncology)", experience: "17 yrs", fee: "₹1,200", rating: 5.0, reviews: 112, hours: "11:30 - 16:30", nmc: "NMC-2007-1049", wing: "Cancer Care Institute", image: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=240&auto=format&fit=crop&q=80" },
+  { id: 15, name: "Dr. Deepak Chawla", specialty: "ENT", qualifications: "MBBS, MS (Otorhinolaryngology)", experience: "9 yrs", fee: "₹650", rating: 4.7, reviews: 44, hours: "10:00 - 13:30", nmc: "NMC-2016-7734", wing: "ENT Head & Neck", image: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=240&auto=format&fit=crop&q=80" },
+  { id: 16, name: "Dr. Shweta Kulkarni", specialty: "Psychiatry", qualifications: "MBBS, MD (Psychiatry)", experience: "11 yrs", fee: "₹850", rating: 4.9, reviews: 86, hours: "14:00 - 18:30", nmc: "NMC-2014-2201", wing: "Mind & Behavioral Wing", image: "https://images.unsplash.com/photo-1651008376811-b90baee60c1f?w=240&auto=format&fit=crop&q=80" },
+  { id: 17, name: "Dr. Harish Bhatt", specialty: "Urology", qualifications: "MBBS, MCh (Urology)", experience: "15 yrs", fee: "₹950", rating: 4.8, reviews: 71, hours: "10:00 - 14:00", nmc: "NMC-2009-4102", wing: "Urology & Lithotripsy", image: "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=240&auto=format&fit=crop&q=80" },
+  { id: 18, name: "Dr. Shalini Deshmukh", specialty: "Rheumatology", qualifications: "MBBS, MD, Fellowship Rheumatology", experience: "10 yrs", fee: "₹850", rating: 4.9, reviews: 58, hours: "11:00 - 15:00", nmc: "NMC-2015-3309", wing: "Immunology Center", image: "https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=240&auto=format&fit=crop&q=80" },
+  { id: 19, name: "Dr. Vinay Trivedi", specialty: "General Surgery", qualifications: "MBBS, MS, FMAS (Laparoscopy)", experience: "18 yrs", fee: "₹900", rating: 4.8, reviews: 95, hours: "09:00 - 13:00", nmc: "NMC-2006-1188", wing: "Surgical Suites Wing C", image: "https://images.unsplash.com/photo-1622902046580-2b47f47f5471?w=240&auto=format&fit=crop&q=80" },
+  { id: 20, name: "Dr. Archana Pillai", specialty: "Pathology", qualifications: "MBBS, MD (Pathology)", experience: "12 yrs", fee: "₹500", rating: 4.9, reviews: 40, hours: "08:00 - 16:00", nmc: "NMC-2012-6611", wing: "Central Diagnostic Labs", image: "https://images.unsplash.com/photo-1551601651-2a8555f1a136?w=240&auto=format&fit=crop&q=80" },
+  { id: 21, name: "Dr. Gaurav Kapoor", specialty: "Cardiology", qualifications: "MBBS, MD, FACC (Interventional)", experience: "16 yrs", fee: "₹1,000", rating: 5.0, reviews: 130, hours: "10:00 - 15:00", nmc: "NMC-2008-7711", wing: "Cardiology Block A", image: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=240&auto=format&fit=crop&q=80" },
+  { id: 22, name: "Dr. Tanya Varma", specialty: "Pediatrics", qualifications: "MBBS, DNB (Neonatology)", experience: "8 yrs", fee: "₹700", rating: 4.8, reviews: 63, hours: "11:00 - 16:00", nmc: "NMC-2017-4921", wing: "NICU & Child Health", image: "https://images.unsplash.com/photo-1527613426441-4da17471b66d?w=240&auto=format&fit=crop&q=80" },
+  { id: 23, name: "Dr. Sameer Rizvi", specialty: "Orthopedics", qualifications: "MBBS, MS (Joint Replacement)", experience: "14 yrs", fee: "₹900", rating: 4.9, reviews: 89, hours: "09:30 - 13:30", nmc: "NMC-2010-8812", wing: "Bone & Joint Centre", image: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=240&auto=format&fit=crop&q=80" },
+  { id: 24, name: "Dr. Reena Saxena", specialty: "Dermatology", qualifications: "MBBS, MD (Cosmetic Dermatology)", experience: "11 yrs", fee: "₹800", rating: 4.8, reviews: 75, hours: "13:00 - 17:30", nmc: "NMC-2014-9901", wing: "Aesthetic & Skin Wing", image: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=240&auto=format&fit=crop&q=80" },
+  { id: 25, name: "Dr. Arvind Patel", specialty: "Gastroenterology", qualifications: "MBBS, MD, DM (Hepatology)", experience: "13 yrs", fee: "₹1,050", rating: 4.9, reviews: 82, hours: "10:30 - 15:00", nmc: "NMC-2011-3044", wing: "Digestive Health Wing", image: "https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=240&auto=format&fit=crop&q=80" },
+  { id: 26, name: "Dr. Neha Agarwal", specialty: "Gynecology", qualifications: "MBBS, DGO, DNB (OBG)", experience: "9 yrs", fee: "₹750", rating: 4.7, reviews: 54, hours: "09:00 - 13:00", nmc: "NMC-2016-2210", wing: "Women's Health Centre", image: "https://images.unsplash.com/photo-1651008376811-b90baee60c1f?w=240&auto=format&fit=crop&q=80" },
+  { id: 27, name: "Dr. Nikhil Chopra", specialty: "Neurology", qualifications: "MBBS, MD, DM (Stroke Specialist)", experience: "16 yrs", fee: "₹1,100", rating: 5.0, reviews: 97, hours: "12:00 - 17:00", nmc: "NMC-2008-5541", wing: "Neurosciences Tower", image: "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=240&auto=format&fit=crop&q=80" },
+  { id: 28, name: "Dr. Jyoti Malviya", specialty: "Endocrinology", qualifications: "MBBS, MD, DNB (Diabetology)", experience: "10 yrs", fee: "₹800", rating: 4.8, reviews: 68, hours: "09:30 - 14:00", nmc: "NMC-2015-7790", wing: "Metabolic Clinic", image: "https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=240&auto=format&fit=crop&q=80" },
+  { id: 29, name: "Dr. Sanjay Kaul", specialty: "Pulmonology", qualifications: "MBBS, DNB (Critical Care Pulmo)", experience: "15 yrs", fee: "₹850", rating: 4.9, reviews: 85, hours: "10:00 - 14:30", nmc: "NMC-2009-1234", wing: "Respiratory Care Unit", image: "https://images.unsplash.com/photo-1622902046580-2b47f47f5471?w=240&auto=format&fit=crop&q=80" },
+  { id: 30, name: "Dr. Preeti Bajaj", specialty: "General Medicine", qualifications: "MBBS, MD (Family Medicine)", experience: "12 yrs", fee: "₹650", rating: 4.8, reviews: 92, hours: "09:00 - 13:30", nmc: "NMC-2013-8833", wing: "OPD Complex Wing B", image: "https://images.unsplash.com/photo-1551601651-2a8555f1a136?w=240&auto=format&fit=crop&q=80" },
+  { id: 31, name: "Dr. Aman Khurana", specialty: "Oncology", qualifications: "MBBS, MS, MCh (Surgical Oncology)", experience: "15 yrs", fee: "₹1,250", rating: 5.0, reviews: 106, hours: "11:00 - 16:00", nmc: "NMC-2009-9021", wing: "Cancer Care Institute", image: "https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=240&auto=format&fit=crop&q=80" },
+  { id: 32, name: "Dr. Ritu Choudhary", specialty: "Ophthalmology", qualifications: "MBBS, MS (Cornea & Refractive)", experience: "10 yrs", fee: "₹700", rating: 4.7, reviews: 52, hours: "14:00 - 18:00", nmc: "NMC-2015-3341", wing: "Eye Care Centre", image: "https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=240&auto=format&fit=crop&q=80" },
+  { id: 33, name: "Dr. Vivek Murthy", specialty: "Nephrology", qualifications: "MBBS, MD, DM (Renal Transplant)", experience: "17 yrs", fee: "₹1,150", rating: 4.9, reviews: 78, hours: "09:00 - 13:00", nmc: "NMC-2007-4402", wing: "Kidney Care & Dialysis", image: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=240&auto=format&fit=crop&q=80" },
+  { id: 34, name: "Dr. Nalini Swaminathan", specialty: "Psychiatry", qualifications: "MBBS, DPM, MD (Child Psychiatry)", experience: "14 yrs", fee: "₹900", rating: 4.9, reviews: 73, hours: "13:30 - 18:00", nmc: "NMC-2010-6699", wing: "Mind & Behavioral Wing", image: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=240&auto=format&fit=crop&q=80" },
+  { id: 35, name: "Dr. Tarun Grover", specialty: "General Surgery", qualifications: "MBBS, MS (Vascular & General)", experience: "16 yrs", fee: "₹950", rating: 4.8, reviews: 88, hours: "10:00 - 14:00", nmc: "NMC-2008-8877", wing: "Surgical Suites Wing C", image: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=240&auto=format&fit=crop&q=80" },
+  { id: 36, name: "Dr. Madhuri Dixit", specialty: "Cardiology", qualifications: "MBBS, MD, DM (Electrophysiology)", experience: "13 yrs", fee: "₹950", rating: 4.9, reviews: 99, hours: "09:00 - 14:00", nmc: "NMC-2012-1100", wing: "Cardiology Block A", image: "https://images.unsplash.com/photo-1651008376811-b90baee60c1f?w=240&auto=format&fit=crop&q=80" },
+  { id: 37, name: "Dr. Rohit Aggarwal", specialty: "Orthopedics", qualifications: "MBBS, MS (Spine Surgery)", experience: "15 yrs", fee: "₹1,000", rating: 4.9, reviews: 110, hours: "11:00 - 15:30", nmc: "NMC-2009-7722", wing: "Bone & Joint Centre", image: "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=240&auto=format&fit=crop&q=80" },
+  { id: 38, name: "Dr. Sunayana Bose", specialty: "ENT", qualifications: "MBBS, DLO, DNB (Cochlear Implant)", experience: "12 yrs", fee: "₹750", rating: 4.8, reviews: 61, hours: "10:30 - 14:30", nmc: "NMC-2013-5590", wing: "ENT Head & Neck", image: "https://images.unsplash.com/photo-1527613426441-4da17471b66d?w=240&auto=format&fit=crop&q=80" },
+  { id: 39, name: "Dr. Abhay Deshpande", specialty: "Urology", qualifications: "MBBS, MS, MCh (Robotic Uro)", experience: "14 yrs", fee: "₹1,050", rating: 4.9, reviews: 84, hours: "09:30 - 13:30", nmc: "NMC-2011-4477", wing: "Urology & Lithotripsy", image: "https://images.unsplash.com/photo-1622902046580-2b47f47f5471?w=240&auto=format&fit=crop&q=80" },
+  { id: 40, name: "Dr. Pallavi Roy", specialty: "General Medicine", qualifications: "MBBS, MD (Critical Care & Medicine)", experience: "10 yrs", fee: "₹700", rating: 4.8, reviews: 77, hours: "10:00 - 15:00", nmc: "NMC-2015-9921", wing: "OPD Complex Wing B", image: "https://images.unsplash.com/photo-1551601651-2a8555f1a136?w=240&auto=format&fit=crop&q=80" },
 ];
 
 export default function DashboardSuite() {
   const [, setLocation] = useLocation();
-  const { currentUser, logout } = useAuthUser();
+  const { currentUser, logout, loginAs } = useAuthUser();
+  const [showRegionalOps, setShowRegionalOps] = useState(false);
+  const [showEvaluatorModal, setShowEvaluatorModal] = useState(false);
 
   // Active navigation tab
   const [activeTab, setActiveTab] = useState<string>("overview");
@@ -186,6 +194,29 @@ export default function DashboardSuite() {
       wing: "Aesthetic & Skin Wing, Room 102",
     },
   ]);
+
+  const [cancellingAppointment, setCancellingAppointment] = useState<{
+    id: string;
+    doctor: string;
+    date: string;
+    time: string;
+    specialty: string;
+    type: string;
+  } | null>(null);
+  const [cancelReason, setCancelReason] = useState<string>("Schedule conflict / Personal emergency");
+
+  const handleConfirmCancelAppointment = () => {
+    if (!cancellingAppointment) return;
+    setAppointments(prev =>
+      prev.map(apt =>
+        apt.id === cancellingAppointment.id
+          ? { ...apt, status: "Cancelled" }
+          : apt
+      )
+    );
+    toast.success(`Appointment #${cancellingAppointment.id} with ${cancellingAppointment.doctor} has been cancelled.`);
+    setCancellingAppointment(null);
+  };
 
   // Medical Timeline records (5 rich events)
   const [timelineRecords] = useState([
@@ -373,9 +404,37 @@ export default function DashboardSuite() {
   const [isVideoOn, setIsVideoOn] = useState(true);
 
   // Active Persona details
-  const userName = currentUser?.name || "Vittika Bairathi";
-  const userRole = currentUser?.role === "doctor" ? "DOCTOR" : currentUser?.role === "hospital" ? "STAFF" : "PATIENT";
-  const userEmail = currentUser?.email || "vittikabairathi35@gmail.com";
+  const isDoctor = currentUser?.role === "doctor" || currentUser?.userType === "doctor";
+  const isStaff = currentUser?.role === "hospital" || currentUser?.role === "coordinator" || currentUser?.userType === "staff";
+  const isAdmin = currentUser?.role === "admin";
+
+  const defaultName = isAdmin
+    ? "Dr. Arvind Swaminathan"
+    : isStaff
+    ? "Sister Sarita Thomas"
+    : isDoctor
+    ? "Dr. Om Mishra"
+    : "Vittika Bairathi";
+
+  const defaultRole = isAdmin
+    ? "ADMIN"
+    : isStaff
+    ? "STAFF"
+    : isDoctor
+    ? "DOCTOR"
+    : "PATIENT";
+
+  const defaultEmail = isAdmin
+    ? "admin@mednexus.example"
+    : isStaff
+    ? "nurse001@mednexus.example"
+    : isDoctor
+    ? "om.mishra@mednexus.example"
+    : "vittikabairathi35@gmail.com";
+
+  const userName = currentUser?.name || defaultName;
+  const userRole = isAdmin ? "ADMIN" : isStaff ? "STAFF" : isDoctor ? "DOCTOR" : "PATIENT";
+  const userEmail = currentUser?.email || defaultEmail;
   const patientId = "PAT-011";
 
   const initials = userName
@@ -384,7 +443,7 @@ export default function DashboardSuite() {
     .slice(-2)
     .map((p: string) => p[0])
     .join("")
-    .toUpperCase() || "VB";
+    .toUpperCase() || (isAdmin ? "AS" : isStaff ? "ST" : isDoctor ? "OM" : "VB");
 
   // Handlers
   const handleConfirmBooking = (e: React.FormEvent) => {
@@ -413,6 +472,10 @@ export default function DashboardSuite() {
     toast.success("Pill adherence log updated!");
   };
 
+  // ZAPIA Live Mutation
+  const chatZapiaMutation = trpc.aiBooking.chatZapia.useMutation();
+  const [isZapiaThinking, setIsZapiaThinking] = useState(false);
+
   const handleSendZapia = (textToSend?: string) => {
     const text = textToSend || zapiaInput.trim();
     if (!text) return;
@@ -420,21 +483,28 @@ export default function DashboardSuite() {
     const newMessages = [...zapiaMessages, { sender: "user" as const, text, time: now }];
     setZapiaMessages(newMessages);
     setZapiaInput("");
+    setIsZapiaThinking(true);
 
-    setTimeout(() => {
-      let reply = "I understand your clinical enquiry. Based on your MEDNEXUS patient history, this has been recorded for review.";
-      const low = text.toLowerCase();
-      if (low.includes("combiflam") || low.includes("dolo")) {
-        reply = "⚠️ SAFETY ALERT (HT-01 Rule DUP-PARACETAMOL): Combiflam contains 325mg Paracetamol + 400mg Ibuprofen. Taking it with Dolo 650mg adds 975mg Paracetamol per dose, risking acute liver toxicity if taken multiple times. Consult your physician before combining.";
-      } else if (low.includes("hba1c") || low.includes("report")) {
-        reply = "📊 REPORT SIMPLIFIER (HT-02): HbA1c measures average blood sugar over 3 months. A value of 9.4% is elevated above the standard normal threshold (<5.7%), indicating diabetic range. I recommend discussing glycemic medication adjustments with Dr. Sunita Sen (Endocrinology).";
-      } else if (low.includes("pressure") || low.includes("bp")) {
-        reply = "🩺 CARDIOLOGY ADVISORY: Your recorded resting BP is 120/80 mmHg, which is optimal on Telmisartan 40mg. Remember to avoid skipping doses and maintain low dietary sodium.";
-      } else if (low.includes("book") || low.includes("mishra")) {
-        reply = "📅 APPOINTMENT ASSISTANT: Dr. Om Mishra is available on 2026-10-26 at 10:00 AM in Cardiology Block A. Click 'Book Appointment' to confirm your atomic reservation.";
+    chatZapiaMutation.mutate(
+      { message: text, patientName: "Vittika Bairathi" },
+      {
+        onSuccess: (data: string) => {
+          setIsZapiaThinking(false);
+          setZapiaMessages(prev => [
+            ...prev,
+            { sender: "ai", text: data, time: "Just now" }
+          ]);
+        },
+        onError: () => {
+          setIsZapiaThinking(false);
+          const reply = `I have received your query: "${text}". Based on your MEDNEXUS health records, our clinical team has noted this enquiry. For critical symptoms or emergency triage, please proceed to the nearest emergency room or consult Dr. Priya Nair directly.`;
+          setZapiaMessages(prev => [
+            ...prev,
+            { sender: "ai", text: reply, time: "Just now" }
+          ]);
+        }
       }
-      setZapiaMessages(prev => [...prev, { sender: "ai", text: reply, time: "Just now" }]);
-    }, 600);
+    );
   };
 
   const handleAddReview = (e: React.FormEvent) => {
@@ -497,11 +567,9 @@ export default function DashboardSuite() {
           <button
             type="button"
             className="mn-btn-explore-pill"
-            onClick={() => {
-              setLocation("/");
-            }}
+            onClick={() => setShowEvaluatorModal(true)}
           >
-            <Sparkles size={14} /> Explore Demo
+            <Sparkles size={14} /> Switch Persona
           </button>
 
           <button
@@ -521,7 +589,9 @@ export default function DashboardSuite() {
                 <span className="mn-user-fullname">{userName}</span>
                 <span
                   className={`mn-user-role-pill ${
-                    userRole === "DOCTOR"
+                    userRole === "ADMIN"
+                      ? "mn-badge-admin"
+                      : userRole === "DOCTOR"
                       ? "mn-badge-doctor"
                       : userRole === "STAFF"
                       ? "mn-badge-staff"
@@ -546,9 +616,25 @@ export default function DashboardSuite() {
       </header>
 
       {/* ============================================================
-          MAIN BODY (12-Item Sidebar + Content Stage)
+          MAIN BODY (Role Consoles or Patient 12-Item Workspace)
           ============================================================ */}
-      <div className="mn-workspace-body">
+      {showRegionalOps ? (
+        <RegionalOperationsView onClose={() => setShowRegionalOps(false)} />
+      ) : isAdmin ? (
+        <AdminConsoleView
+          doctorsList={ALL_DOCTORS}
+          onOpenInnovationLab={() => setShowRegionalOps(true)}
+        />
+      ) : isStaff ? (
+        <StaffConsoleView onOpenBedMatrix={() => {}} />
+      ) : isDoctor ? (
+        <DoctorConsoleView
+          doctorName={userName}
+          specialty="Cardiology"
+          onLaunchTelehealth={() => setIsTelehealthOpen(true)}
+        />
+      ) : (
+        <div className="mn-workspace-body">
         {/* Left Sidebar (Exact 12 Items from Image 5) */}
         <aside className="mn-suite-sidebar">
           {/* Patient Profile Card */}
@@ -792,18 +878,31 @@ export default function DashboardSuite() {
                           {appointments[0].date} at {appointments[0].time} · {appointments[0].type}
                         </span>
                       </p>
-                      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                        <span className="mn-status-pill mn-status-confirmed">{appointments[0].status}</span>
-                        {appointments[0].type.includes("Online") && (
-                          <button
-                            type="button"
-                            className="mn-doc-card-btn"
-                            style={{ padding: "4px 10px", fontSize: 11, width: "auto" }}
-                            onClick={() => setIsTelehealthOpen(true)}
-                          >
-                            <Video size={12} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
-                            Join Video Call
-                          </button>
+                      <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
+                        <span className={`mn-status-pill ${appointments[0].status === "Cancelled" ? "mn-status-cancelled" : "mn-status-confirmed"}`}>
+                          {appointments[0].status}
+                        </span>
+                        {appointments[0].status !== "Cancelled" && (
+                          <>
+                            {appointments[0].type.includes("Online") && (
+                              <button
+                                type="button"
+                                className="mn-doc-card-btn"
+                                style={{ padding: "4px 10px", fontSize: 11, width: "auto" }}
+                                onClick={() => setIsTelehealthOpen(true)}
+                              >
+                                <Video size={12} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
+                                Join Video Call
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              className="mn-doc-card-btn mn-btn-cancel-apt"
+                              onClick={() => setCancellingAppointment(appointments[0])}
+                            >
+                              Cancel Consultation
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
@@ -1026,36 +1125,69 @@ export default function DashboardSuite() {
                 {filteredDoctors.map(doc => (
                   <div className="mn-doctor-card-item" key={doc.id}>
                     <div className="mn-doc-top">
-                      <div className="mn-doc-avatar">{doc.name.split(" ")[1]?.[0] || "D"}</div>
+                      <div className="mn-doc-avatar-wrap">
+                        <img
+                          src={doc.image}
+                          alt={doc.name}
+                          className="mn-doc-avatar-photo"
+                          loading="eager"
+                          onError={(e) => {
+                            const target = e.currentTarget as HTMLImageElement;
+                            if (!target.dataset.tried) {
+                              target.dataset.tried = "true";
+                              target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(doc.name)}&background=0d9488&color=fff&size=200&bold=true`;
+                            }
+                          }}
+                        />
+                        <div className="mn-doc-online-badge" title="Active on duty / OPD Available" />
+                      </div>
                       <div className="mn-doc-title-group">
-                        <h4>{doc.name}</h4>
-                        <span>{doc.specialty}</span>
-                        <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2, fontSize: 11, color: "#d97706" }}>
-                          <Star size={12} fill="#d97706" /> {doc.rating} ({doc.reviews} reviews)
+                        <div className="mn-doc-header-row">
+                          <h4>{doc.name}</h4>
+                          <span className="mn-doc-spec-badge">{doc.specialty}</span>
+                        </div>
+                        <div className="mn-doc-qual">{doc.qualifications}</div>
+                        <div className="mn-doc-rating-row">
+                          <Star size={14} fill="#d97706" color="#d97706" />
+                          <span className="mn-doc-rating-num">{doc.rating}</span>
+                          <span className="mn-doc-reviews-count">({doc.reviews} verified reviews)</span>
                         </div>
                       </div>
                     </div>
-                    <div className="mn-doc-meta">
-                      <div>{doc.qualifications}</div>
-                      <div className="mn-doc-meta-row">
-                        <span>Experience: {doc.experience}</span>
-                        <strong style={{ color: "#0d9488" }}>{doc.fee}</strong>
+
+                    <div className="mn-doc-info-chips">
+                      <div className="mn-doc-chip">
+                        <span className="mn-doc-chip-label">Experience</span>
+                        <strong className="mn-doc-chip-val">{doc.experience}</strong>
                       </div>
-                      <div style={{ fontSize: 11, color: "#64748b" }}>Hours: {doc.hours}</div>
-                      <div style={{ fontSize: 11, color: "#0d9488", fontWeight: 600 }}>{doc.wing}</div>
+                      <div className="mn-doc-chip mn-doc-chip-fee">
+                        <span className="mn-doc-chip-label">Consultation Fee</span>
+                        <strong className="mn-doc-chip-val">{doc.fee}</strong>
+                      </div>
                     </div>
-                    <div style={{ display: "flex", gap: 8, marginTop: "auto" }}>
+
+                    <div className="mn-doc-schedule-card">
+                      <div className="mn-doc-schedule-item">
+                        <Clock size={13} className="mn-doc-schedule-icon" />
+                        <span>OPD Hours: <strong>{doc.hours}</strong></span>
+                      </div>
+                      <div className="mn-doc-schedule-item">
+                        <Stethoscope size={13} className="mn-doc-schedule-icon" />
+                        <span className="mn-doc-wing-text">{doc.wing}</span>
+                      </div>
+                    </div>
+
+                    <div className="mn-doc-actions-row">
                       <button
                         type="button"
-                        className="mn-doc-card-btn"
-                        style={{ background: "#f8fafc", color: "#334155", borderColor: "#cbd5e1" }}
+                        className="mn-doc-card-btn mn-doc-btn-secondary"
                         onClick={() => setIsDoctorProfileOpen(doc)}
                       >
-                        Profile
+                        Doctor Profile
                       </button>
                       <button
                         type="button"
-                        className="mn-doc-card-btn"
+                        className="mn-doc-card-btn mn-doc-btn-primary"
                         onClick={() => {
                           setSelectedDoctorForBooking(doc.name);
                           setIsBookingOpen(true);
@@ -1141,6 +1273,8 @@ export default function DashboardSuite() {
                                 ? "mn-status-confirmed"
                                 : apt.status === "Completed"
                                 ? "mn-status-completed"
+                                : apt.status === "Cancelled"
+                                ? "mn-status-cancelled"
                                 : "mn-status-pending"
                             }`}
                           >
@@ -1148,31 +1282,47 @@ export default function DashboardSuite() {
                           </span>
                         </td>
                         <td>
-                          <div style={{ display: "flex", gap: 8 }}>
-                            {apt.type.includes("Online") && apt.status === "Confirmed" && (
-                              <button
-                                type="button"
-                                className="mn-doc-card-btn"
-                                style={{ padding: "4px 10px", fontSize: 11, width: "auto" }}
-                                onClick={() => setIsTelehealthOpen(true)}
-                              >
-                                Join Video
-                              </button>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                            {apt.status !== "Cancelled" ? (
+                              <>
+                                {apt.type.includes("Online") && apt.status === "Confirmed" && (
+                                  <button
+                                    type="button"
+                                    className="mn-doc-card-btn"
+                                    style={{ padding: "4px 10px", fontSize: 11, width: "auto" }}
+                                    onClick={() => setIsTelehealthOpen(true)}
+                                  >
+                                    Join Video
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  style={{
+                                    background: "none",
+                                    border: "none",
+                                    color: "#0d9488",
+                                    fontWeight: 700,
+                                    cursor: "pointer",
+                                    fontSize: 12,
+                                  }}
+                                  onClick={() => toast.success(`Appointment receipt for ${apt.id} downloaded.`)}
+                                >
+                                  Download Slip
+                                </button>
+                                <button
+                                  type="button"
+                                  className="mn-btn-table-cancel"
+                                  onClick={() => setCancellingAppointment(apt)}
+                                  title="Cancel this appointment"
+                                >
+                                  Cancel
+                                </button>
+                              </>
+                            ) : (
+                              <span style={{ fontSize: 12, color: "#dc2626", fontWeight: 700, fontStyle: "italic" }}>
+                                Cancelled
+                              </span>
                             )}
-                            <button
-                              type="button"
-                              style={{
-                                background: "none",
-                                border: "none",
-                                color: "#0d9488",
-                                fontWeight: 700,
-                                cursor: "pointer",
-                                fontSize: 12,
-                              }}
-                              onClick={() => toast.success(`Appointment receipt for ${apt.id} downloaded.`)}
-                            >
-                              Download Slip
-                            </button>
                           </div>
                         </td>
                       </tr>
@@ -1584,6 +1734,7 @@ export default function DashboardSuite() {
           )}
         </main>
       </div>
+      )}
 
       {/* ============================================================
           BOOKING MODAL
@@ -1761,6 +1912,12 @@ export default function DashboardSuite() {
                 </div>
               ))}
 
+              {isZapiaThinking && (
+                <div className="mn-chat-bubble ai" style={{ display: "inline-flex", alignItems: "center", gap: 8, fontStyle: "italic", opacity: 0.85 }}>
+                  <Loader2 size={13} className="animate-spin" /> ZAPIA is analyzing clinically...
+                </div>
+              )}
+
               {/* Quick Prompt Chips */}
               <div style={{ marginTop: 12 }}>
                 <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, marginBottom: 6 }}>Suggested Questions:</div>
@@ -1911,11 +2068,29 @@ export default function DashboardSuite() {
         >
           <div className="mn-evaluator-modal-content" style={{ maxWidth: 540 }}>
             <div className="mn-evaluator-modal-header">
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div className="mn-doc-avatar">{isDoctorProfileOpen.name.split(" ")[1]?.[0] || "D"}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div className="mn-doc-avatar-container" style={{ width: 68, height: 68, border: "3px solid #0d9488" }}>
+                  <img
+                    src={isDoctorProfileOpen.image}
+                    alt={isDoctorProfileOpen.name}
+                    className="mn-doc-avatar-photo"
+                    style={{ width: "100%", height: "100%" }}
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      const target = e.currentTarget as HTMLImageElement;
+                      if (!target.dataset.tried) {
+                        target.dataset.tried = "true";
+                        target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(isDoctorProfileOpen.name)}&background=0d9488&color=fff&size=160&bold=true`;
+                      }
+                    }}
+                  />
+                  <div className="mn-doc-avatar-fallback" style={{ width: "100%", height: "100%", fontSize: 22 }}>
+                    {isDoctorProfileOpen.name.split(" ")[1]?.[0] || "D"}
+                  </div>
+                </div>
                 <div>
-                  <h3 style={{ margin: 0 }}>{isDoctorProfileOpen.name}</h3>
-                  <div style={{ fontSize: 12, color: "#0d9488", fontWeight: 700 }}>{isDoctorProfileOpen.specialty}</div>
+                  <h3 style={{ margin: 0, fontSize: 18 }}>{isDoctorProfileOpen.name}</h3>
+                  <div style={{ fontSize: 13, color: "#0d9488", fontWeight: 700 }}>{isDoctorProfileOpen.specialty}</div>
                 </div>
               </div>
               <button
@@ -2161,6 +2336,316 @@ export default function DashboardSuite() {
                 }}
               >
                 <Printer size={16} /> Print / Save PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================
+          1-CLICK EVALUATOR PERSONA SWITCHER MODAL
+          ============================================================ */}
+      {showEvaluatorModal && (
+        <div
+          className="mn-evaluator-modal-backdrop"
+          onClick={e => {
+            if (e.target === e.currentTarget) setShowEvaluatorModal(false);
+          }}
+        >
+          <div className="mn-evaluator-modal-content" style={{ maxWidth: 640 }}>
+            <div className="mn-evaluator-modal-header">
+              <div>
+                <h3 style={{ margin: 0, fontSize: 18, color: "#0f172a" }}>Switch Evaluator Persona</h3>
+                <p style={{ margin: "4px 0 0", fontSize: 12, color: "#64748b" }}>
+                  Instant 1-click access to all 4 MEDNEXUS platform roles from the Manus review
+                </p>
+              </div>
+              <button
+                type="button"
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b" }}
+                onClick={() => setShowEvaluatorModal(false)}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 16 }}>
+              {/* Admin */}
+              <button
+                type="button"
+                onClick={() => {
+                  loginAs({
+                    name: "Dr. Arvind Swaminathan",
+                    email: "admin@mednexus.example",
+                    role: "admin",
+                    userType: "staff",
+                    hospitalName: "MEDNEXUS General Hospital",
+                  });
+                  setShowRegionalOps(false);
+                  setShowEvaluatorModal(false);
+                  toast.success("Switched to Hospital Operations Console (Dr. Arvind Swaminathan)");
+                }}
+                style={{
+                  textAlign: "left",
+                  padding: 14,
+                  borderRadius: 10,
+                  border: isAdmin ? "2px solid #0d9488" : "1px solid #e2e8f0",
+                  background: isAdmin ? "#f0fdfa" : "#ffffff",
+                  cursor: "pointer",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: "#0d9488", background: "#ccfbf1", padding: "2px 8px", borderRadius: 4 }}>
+                    HOSPITAL ADMIN
+                  </span>
+                  {isAdmin && <CheckCircle2 size={16} color="#0d9488" />}
+                </div>
+                <div style={{ fontWeight: 800, fontSize: 14, color: "#0f172a", marginTop: 8 }}>
+                  Dr. Arvind Swaminathan
+                </div>
+                <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                  Medical Director · 8 KPIs, Wards, Fleet, Billing, Staff &amp; Doctors
+                </div>
+              </button>
+
+              {/* Staff */}
+              <button
+                type="button"
+                onClick={() => {
+                  loginAs({
+                    name: "Sister Sarita Thomas",
+                    email: "nurse001@mednexus.example",
+                    role: "hospital",
+                    userType: "staff",
+                    hospitalName: "MEDNEXUS General Hospital",
+                  });
+                  setShowRegionalOps(false);
+                  setShowEvaluatorModal(false);
+                  toast.success("Switched to Staff Clinical Console (Sister Sarita Thomas)");
+                }}
+                style={{
+                  textAlign: "left",
+                  padding: 14,
+                  borderRadius: 10,
+                  border: isStaff ? "2px solid #0284c7" : "1px solid #e2e8f0",
+                  background: isStaff ? "#f0f9ff" : "#ffffff",
+                  cursor: "pointer",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: "#0284c7", background: "#e0f2fe", padding: "2px 8px", borderRadius: 4 }}>
+                    HOSPITAL STAFF
+                  </span>
+                  {isStaff && <CheckCircle2 size={16} color="#0284c7" />}
+                </div>
+                <div style={{ fontWeight: 800, fontSize: 14, color: "#0f172a", marginTop: 8 }}>
+                  Sister Sarita Thomas
+                </div>
+                <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                  Duty Nurse · OPD Check-in, Bed Allocation, Shift Checklist
+                </div>
+              </button>
+
+              {/* Doctor */}
+              <button
+                type="button"
+                onClick={() => {
+                  loginAs({
+                    name: "Dr. Om Mishra",
+                    email: "om.mishra@mednexus.example",
+                    role: "doctor",
+                    userType: "doctor",
+                    hospitalName: "MEDNEXUS General Hospital",
+                  });
+                  setShowRegionalOps(false);
+                  setShowEvaluatorModal(false);
+                  toast.success("Switched to Doctor Command Station (Dr. Om Mishra)");
+                }}
+                style={{
+                  textAlign: "left",
+                  padding: 14,
+                  borderRadius: 10,
+                  border: isDoctor ? "2px solid #7c3aed" : "1px solid #e2e8f0",
+                  background: isDoctor ? "#f5f3ff" : "#ffffff",
+                  cursor: "pointer",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: "#7c3aed", background: "#ede9fe", padding: "2px 8px", borderRadius: 4 }}>
+                    ATTENDING DOCTOR
+                  </span>
+                  {isDoctor && <CheckCircle2 size={16} color="#7c3aed" />}
+                </div>
+                <div style={{ fontWeight: 800, fontSize: 14, color: "#0f172a", marginTop: 8 }}>
+                  Dr. Om Mishra
+                </div>
+                <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                  Senior Cardiologist · Outpatient Queue, Rx Pad, Telehealth
+                </div>
+              </button>
+
+              {/* Patient */}
+              <button
+                type="button"
+                onClick={() => {
+                  loginAs({
+                    name: "Vittika Bairathi",
+                    email: "vittikabairathi35@gmail.com",
+                    role: "patient",
+                    userType: "patient",
+                    hospitalName: "MEDNEXUS General Hospital",
+                  });
+                  setShowRegionalOps(false);
+                  setShowEvaluatorModal(false);
+                  toast.success("Switched to Patient Portal (Vittika Bairathi)");
+                }}
+                style={{
+                  textAlign: "left",
+                  padding: 14,
+                  borderRadius: 10,
+                  border: (!isAdmin && !isStaff && !isDoctor) ? "2px solid #10b981" : "1px solid #e2e8f0",
+                  background: (!isAdmin && !isStaff && !isDoctor) ? "#ecfdf5" : "#ffffff",
+                  cursor: "pointer",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: "#059669", background: "#d1fae5", padding: "2px 8px", borderRadius: 4 }}>
+                    PATIENT (PAT-011)
+                  </span>
+                  {(!isAdmin && !isStaff && !isDoctor) && <CheckCircle2 size={16} color="#059669" />}
+                </div>
+                <div style={{ fontWeight: 800, fontSize: 14, color: "#0f172a", marginTop: 8 }}>
+                  Vittika Bairathi
+                </div>
+                <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                  Patient Portal · 12 Modules, Timeline, AI Verifier, Vitals
+                </div>
+              </button>
+            </div>
+
+            {/* Regional Operations & Innovation Lab Banner */}
+            <div
+              style={{
+                marginTop: 16,
+                padding: 14,
+                borderRadius: 10,
+                background: "linear-gradient(135deg, #071922 0%, #0d2836 100%)",
+                color: "#ffffff",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 13, color: "#2dd4bf" }}>
+                  REGIONAL OPERATIONS &amp; INNOVATION LAB
+                </div>
+                <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                  Digital Twin 82% capacity · 5 Connected Innovations · Emergency Exchange
+                </div>
+              </div>
+              <button
+                type="button"
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: 8,
+                  background: "#0d9488",
+                  color: "#ffffff",
+                  border: "none",
+                  fontWeight: 700,
+                  fontSize: 12,
+                  cursor: "pointer",
+                }}
+                onClick={() => {
+                  setShowRegionalOps(true);
+                  setShowEvaluatorModal(false);
+                }}
+              >
+                Launch Lab
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================
+          APPOINTMENT CANCELLATION MODAL
+          ============================================================ */}
+      {cancellingAppointment && (
+        <div
+          className="mn-evaluator-modal-backdrop"
+          onClick={e => {
+            if (e.target === e.currentTarget) setCancellingAppointment(null);
+          }}
+        >
+          <div className="mn-evaluator-modal-content" style={{ maxWidth: 440 }}>
+            <div className="mn-evaluator-modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 34, height: 34, borderRadius: "50%", background: "#fee2e2", display: "grid", placeItems: "center" }}>
+                  <AlertCircle size={18} color="#dc2626" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, color: "#0f172a", fontSize: 16 }}>Cancel Appointment</h3>
+                  <span style={{ fontSize: 12, color: "#64748b" }}>Booking Ref: #{cancellingAppointment.id}</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b" }}
+                onClick={() => setCancellingAppointment(null)}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ padding: "16px 0" }}>
+              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 12, marginBottom: 16 }}>
+                <div style={{ fontWeight: 800, fontSize: 14, color: "#0f172a" }}>
+                  {cancellingAppointment.doctor}
+                </div>
+                <div style={{ fontSize: 12, color: "#0d9488", fontWeight: 600 }}>
+                  {cancellingAppointment.specialty}
+                </div>
+                <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
+                  📅 {cancellingAppointment.date} at {cancellingAppointment.time} · {cancellingAppointment.type}
+                </div>
+              </div>
+
+              <div className="mn-form-group">
+                <label className="mn-form-label">Reason for Cancellation</label>
+                <select
+                  value={cancelReason}
+                  onChange={e => setCancelReason(e.target.value)}
+                  className="mn-input-control"
+                  style={{ paddingLeft: 14 }}
+                >
+                  <option value="Schedule conflict / Personal emergency">Schedule conflict / Personal emergency</option>
+                  <option value="Feeling better / Symptoms resolved">Feeling better / Symptoms resolved</option>
+                  <option value="Want to reschedule to a later date">Want to reschedule to a later date</option>
+                  <option value="Consulted another physician">Consulted another physician</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <p style={{ fontSize: 12, color: "#64748b", margin: "10px 0 0 0", lineHeight: 1.4 }}>
+                Note: Cancellation frees your consultation slot for emergency hospital triage. If you paid an advance consultation fee, refund processing will be initiated automatically.
+              </p>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, borderTop: "1px solid #f1f5f9", paddingTop: 14 }}>
+              <button
+                type="button"
+                className="mn-doc-card-btn mn-doc-btn-secondary"
+                onClick={() => setCancellingAppointment(null)}
+              >
+                Keep Appointment
+              </button>
+              <button
+                type="button"
+                className="mn-doc-card-btn mn-btn-danger-confirm"
+                onClick={handleConfirmCancelAppointment}
+              >
+                Yes, Cancel Appointment
               </button>
             </div>
           </div>

@@ -519,26 +519,30 @@ Return ONLY a valid raw JSON object without markdown or code fences:
         });
       }
 
-      // Try gemini-3.8-flash, fallback to gemini-2.5-flash
-      const modelNames = ["gemini-3.8-flash", "gemini-2.5-flash"];
+      // Try fast models with snappy 2.5s timeout, falling back smoothly to local parser
+      const modelNames = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-flash-latest"];
       for (const model of modelNames) {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-        const res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts }] }),
-          signal: AbortSignal.timeout(10000)
-        });
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contents: [{ parts }] }),
+            signal: AbortSignal.timeout(2500)
+          });
 
-        if (res.ok) {
-          const data = await res.json();
-          const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (rawText) {
-            const cleanJson = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
-            draftData = JSON.parse(cleanJson);
-            usedGemini = true;
-            break;
+          if (res.ok) {
+            const data = await res.json();
+            const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (rawText) {
+              const cleanJson = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
+              draftData = JSON.parse(cleanJson);
+              usedGemini = true;
+              break;
+            }
           }
+        } catch {
+          // Continue to next model or local fallback
         }
       }
     } catch {

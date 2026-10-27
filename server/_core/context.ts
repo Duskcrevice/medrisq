@@ -35,6 +35,7 @@ export async function createContext(
             name: parsed.name || "Authenticated User",
             email: parsed.email || null,
             role: parsed.role === "admin" ? "admin" : "user",
+            hospital_id: String(parsed.hospital_id || "HOSP-DEFAULT"),
             loginMethod: "demo",
             lastSignedIn: new Date(),
             createdAt: new Date(),
