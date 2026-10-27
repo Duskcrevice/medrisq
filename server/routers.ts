@@ -151,10 +151,11 @@ export const appRouter = router({
     })).mutation(({ input }) => simplifyCustomReport(input.patientName, input.reportType, input.measurements)),
     // Universal Uploaded Report Simplifier (File / Text / Image)
     simplifyUploadedReport: publicProcedure.input(z.object({
-      reportText: z.string().min(1),
+      reportText: z.string().optional().default(""),
       patientName: z.string().optional(),
+      imageBase64: z.string().optional(),
     })).mutation(async ({ input }) => {
-      return simplifyMedicalReportText(input.reportText, input.patientName);
+      return simplifyMedicalReportText(input.reportText || "", input.patientName, input.imageBase64);
     }),
 
     // HT-03: Healthcare Without Internet

@@ -495,13 +495,13 @@ VLDL Cholesterol: 42 mg/dL (Normal: 5 - 30 mg/dL) [HIGH]`
     }
   ];
 
-  const runSimplify = (textToProcess: string, fileName?: string) => {
-    if (!textToProcess.trim()) {
+  const runSimplify = (textToProcess: string, fileName?: string, imageBase64?: string) => {
+    if (!textToProcess.trim() && !imageBase64) {
       toast.info("Please provide report text or select a file to simplify.");
       return;
     }
     simplifyMutation.mutate(
-      { reportText: textToProcess, patientName },
+      { reportText: textToProcess, patientName, imageBase64 },
       {
         onSuccess: (data: any) => {
           const normalized = {
@@ -542,7 +542,15 @@ VLDL Cholesterol: 42 mg/dL (Normal: 5 - 30 mg/dL) [HIGH]`
 
     setUploadedFileName(file.name);
 
-    if (file.type.includes("text") || file.name.endsWith(".txt")) {
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = (event.target?.result as string) || "";
+        setReportText(`[Uploaded Image: ${file.name}] Processing via Gemini Vision OCR...`);
+        runSimplify(`Lab Report Image: ${file.name}`, file.name, base64);
+      };
+      reader.readAsDataURL(file);
+    } else if (file.type.includes("text") || file.name.endsWith(".txt") || file.name.endsWith(".csv")) {
       const reader = new FileReader();
       reader.onload = (event) => {
         const text = (event.target?.result as string) || "";
@@ -551,17 +559,14 @@ VLDL Cholesterol: 42 mg/dL (Normal: 5 - 30 mg/dL) [HIGH]`
       };
       reader.readAsText(file);
     } else {
-      // For images or PDF files, construct a rich diagnostic representation
-      const fileSummary = `UPLOADED CLINICAL LAB REPORT: ${file.name} (Size: ${(file.size / 1024).toFixed(1)} KB)
-Patient: ${patientName} | Modality: Diagnostic Lab Sheet
-Hemoglobin: 10.4 g/dL (Reference: 12.0 - 15.5 g/dL) [LOW]
-WBC Count: 10,900 /uL (Reference: 4,000 - 11,000 /uL) [NORMAL]
-Platelet Count: 142,000 /uL (Reference: 150,000 - 450,000 /uL) [LOW]
-Fasting Glucose: 138 mg/dL (Reference: 70 - 99 mg/dL) [HIGH]
-HbA1c: 7.9 % (Reference: < 5.7 %) [HIGH]
-Serum Creatinine: 1.0 mg/dL (Reference: 0.6 - 1.2 mg/dL) [NORMAL]`;
-      setReportText(fileSummary);
-      runSimplify(fileSummary, file.name);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = (event.target?.result as string) || "";
+        const desc = `Uploaded document: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+        setReportText(desc);
+        runSimplify(desc, file.name, base64);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
