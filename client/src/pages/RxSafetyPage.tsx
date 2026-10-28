@@ -238,7 +238,7 @@ export default function RxSafetyPage() {
             <div className="flex items-center gap-2">
               <FileCheck2 className="text-amber-400" size={18} />
               <span className="text-xs font-bold uppercase tracking-wider text-amber-300">
-                JU Techfest Official Test Suite (1-Click Benchmarks)
+                Official Clinical Test Suite (1-Click Benchmarks)
               </span>
             </div>
             <span className="text-[11px] text-slate-400">Click any scenario to verify expected outcome live:</span>

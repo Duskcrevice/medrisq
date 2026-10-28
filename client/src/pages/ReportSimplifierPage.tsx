@@ -365,7 +365,7 @@ export default function ReportSimplifierPage() {
               <AlertTriangle size={18} className="text-amber-400 shrink-0 mt-0.5" />
               <div>
                 <strong className="block text-amber-300 uppercase tracking-wider text-[11px] font-bold">
-                  Clinical Interpretation Safeguard (JU Techfest Hackathon Rules)
+                  Clinical Interpretation Safeguard
                 </strong>
                 <p className="mt-0.5 text-slate-300 leading-relaxed text-[11px]">
                   {activeReport.disclaimer}

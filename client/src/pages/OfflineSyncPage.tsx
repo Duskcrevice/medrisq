@@ -644,7 +644,7 @@ export default function OfflineSyncPage() {
             </h4>
           </div>
           <p className="text-slate-400 leading-relaxed text-[11px]">
-            In accordance with JU Techfest guidelines: Device storage utilizes encrypted client-side namespaces keyed by
+            In accordance with healthcare data guidelines: Device storage utilizes encrypted client-side namespaces keyed by
             operator role credentials. Unsent transactions carry SHA-256 integrity checksums to prevent tamper during offline
             operation. On reconnect, vector clocks and server version timestamps prevent silent data overwrites.
           </p>

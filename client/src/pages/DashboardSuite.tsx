@@ -964,7 +964,7 @@ export default function DashboardSuite() {
               <div style={{ marginTop: 10 }}>
                 <div className="mn-section-heading">
                   <h2>Hospital Clinical AI &amp; Offline Engines</h2>
-                  <p>JU TECHFEST 2026 problem statements integrated directly into your workflow:</p>
+                  <p>Core clinical AI and resilient offline modules integrated directly into your workflow:</p>
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 18 }}>
